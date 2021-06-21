@@ -25,23 +25,8 @@ fn main() -> std::io::Result<()> {
 
     loop {
         queue!(stdout, Clear(ClearType::All))?;
-        let piece_board = piece.as_board();
         queue!(stdout, cursor::MoveTo(0, 0))?;
-
-        for row in (0..=3).rev() {
-            for col in 0..=9 {
-                if piece_board.get(row, col) {
-                    queue!(stdout, PrintStyledContent("█".black()))?;
-                } else if board.get(row, col) {
-                    queue!(stdout, PrintStyledContent("█".grey()))?;
-                } else {
-                    queue!(stdout, PrintStyledContent("█".white()))?;
-                }
-            }
-
-            queue!(stdout, cursor::MoveToNextLine(1))?;
-        }
-
+        print_board(&mut stdout, board, Some(piece))?;
         stdout.flush()?;
 
         match read()? {
@@ -80,5 +65,25 @@ fn main() -> std::io::Result<()> {
     disable_raw_mode()?;
     queue!(stdout, cursor::Show)?;
     queue!(stdout, LeaveAlternateScreen)?;
+    Ok(())
+}
+
+fn print_board(out: &mut impl Write, board: Board, piece: Option<Piece>) -> std::io::Result<()> {
+    let piece_board = piece.map(Piece::as_board);
+
+    for row in (0..=3).rev() {
+        for col in 0..=9 {
+            if piece_board.map(|p| p.get(row, col)).unwrap_or(false) {
+                queue!(out, PrintStyledContent("█".black()))?;
+            } else if board.get(row, col) {
+                queue!(out, PrintStyledContent("█".grey()))?;
+            } else {
+                queue!(out, PrintStyledContent("█".white()))?;
+            }
+        }
+
+        queue!(out, cursor::MoveToNextLine(1))?;
+    }
+
     Ok(())
 }
