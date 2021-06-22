@@ -6,6 +6,7 @@ use crossterm::{
     cursor, queue,
     style::{PrintStyledContent, Stylize},
 };
+use rayon::prelude::*;
 use std::io::{stdout, Write};
 
 use boardset::BoardSet;
@@ -17,48 +18,20 @@ fn main() -> std::io::Result<()> {
     let mut results = BoardSet::new();
     results.insert(Board::empty());
 
-    for iter in /* 1..=10 */ 1..=4 {
+    for iter in /* 1..=10 */ 1..=5 {
         let new_results = BoardSet::new();
 
-        for set in &results.0 {
-            for bits in set.lock().iter() {
-                let board = Board(*bits);
-                let mut queue = vec![
-                    Piece::new(Shape::I),
-                    Piece::new(Shape::J),
-                    Piece::new(Shape::L),
-                    Piece::new(Shape::O),
-                    Piece::new(Shape::S),
-                    Piece::new(Shape::T),
-                    Piece::new(Shape::Z),
-                ];
-                let mut seen = bitvec![0; 0x4000];
+        rayon::scope(|s| {
+            for set in &results.0 {
+                let new_results = &new_results;
 
-                for &piece in &queue {
-                    seen.set(piece.pack() as usize, true);
-                }
-
-                while let Some(piece) = queue.pop() {
-                    for &new_piece in &[
-                        piece.left(board),
-                        piece.right(board),
-                        piece.down(board),
-                        piece.cw(board),
-                        piece.ccw(board),
-                    ] {
-                        if !seen[new_piece.pack() as usize] {
-                            seen.set(new_piece.pack() as usize, true);
-
-                            queue.push(new_piece);
-
-                            if new_piece.can_place(board) {
-                                new_results.insert(new_piece.place(board));
-                            }
-                        }
-                    }
-                }
+                s.spawn(move |_| {
+                    set.lock()
+                        .par_iter()
+                        .for_each(|bits| process_board(Board(*bits), new_results));
+                })
             }
-        }
+        });
 
         results = new_results;
 
@@ -71,6 +44,43 @@ fn main() -> std::io::Result<()> {
     }
 
     Ok(())
+}
+
+fn process_board(board: Board, into: &BoardSet) {
+    let mut queue = vec![
+        Piece::new(Shape::I),
+        Piece::new(Shape::J),
+        Piece::new(Shape::L),
+        Piece::new(Shape::O),
+        Piece::new(Shape::S),
+        Piece::new(Shape::T),
+        Piece::new(Shape::Z),
+    ];
+    let mut seen = bitvec![0; 0x4000];
+
+    for &piece in &queue {
+        seen.set(piece.pack() as usize, true);
+    }
+
+    while let Some(piece) = queue.pop() {
+        for &new_piece in &[
+            piece.left(board),
+            piece.right(board),
+            piece.down(board),
+            piece.cw(board),
+            piece.ccw(board),
+        ] {
+            if !seen[new_piece.pack() as usize] {
+                seen.set(new_piece.pack() as usize, true);
+
+                queue.push(new_piece);
+
+                if new_piece.can_place(board) {
+                    into.insert(new_piece.place(board));
+                }
+            }
+        }
+    }
 }
 
 #[allow(dead_code)]
