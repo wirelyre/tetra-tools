@@ -328,7 +328,7 @@ impl Piece {
     fn in_bounds(self) -> bool {
         let max_col = PIECE_MAX_COLS[self.shape as usize][self.rotation as usize];
 
-        (self.col >= 0) && (self.col <= max_col) && (self.row >= 0)
+        (self.col >= 0) && (self.col <= max_col) && (self.row >= 0) && (self.row <= 5)
     }
 
     /// Rotate a piece clockwise according to SRS.  If impossible, returns the
