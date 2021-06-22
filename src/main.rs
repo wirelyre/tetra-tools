@@ -1,73 +1,79 @@
+pub mod boardset;
 pub mod gameplay;
 
+use bitvec::prelude::*;
 use crossterm::{
-    cursor,
-    event::{read, Event, KeyCode, KeyEvent},
-    queue,
+    cursor, queue,
     style::{PrintStyledContent, Stylize},
-    terminal::{
-        disable_raw_mode, enable_raw_mode, Clear, ClearType, EnterAlternateScreen,
-        LeaveAlternateScreen,
-    },
 };
 use std::io::{stdout, Write};
 
+use boardset::BoardSet;
 use gameplay::{Board, Piece, Shape};
 
 fn main() -> std::io::Result<()> {
-    let mut board = Board::empty();
-    let mut piece = Piece::new(Shape::I);
-
     let mut stdout = stdout();
-    queue!(stdout, EnterAlternateScreen)?;
-    queue!(stdout, cursor::Hide)?;
-    enable_raw_mode()?;
 
-    loop {
-        queue!(stdout, Clear(ClearType::All))?;
-        queue!(stdout, cursor::MoveTo(0, 0))?;
-        print_board(&mut stdout, board, Some(piece))?;
-        stdout.flush()?;
+    let mut results = BoardSet::new();
+    results.insert(Board::empty());
 
-        match read()? {
-            Event::Key(KeyEvent { code, .. }) => match code {
-                KeyCode::Left => piece = piece.left(board),
-                KeyCode::Right => piece = piece.right(board),
-                KeyCode::Down => piece = piece.down(board),
+    for iter in /* 1..=10 */ 1..=4 {
+        let new_results = BoardSet::new();
 
-                KeyCode::Char('x') => piece = piece.ccw(board),
-                KeyCode::Char('c') => piece = piece.cw(board),
+        for set in &results.0 {
+            for bits in set.lock().iter() {
+                let board = Board(*bits);
+                let mut queue = vec![
+                    Piece::new(Shape::I),
+                    Piece::new(Shape::J),
+                    Piece::new(Shape::L),
+                    Piece::new(Shape::O),
+                    Piece::new(Shape::S),
+                    Piece::new(Shape::T),
+                    Piece::new(Shape::Z),
+                ];
+                let mut seen = bitvec![0; 0x4000];
 
-                KeyCode::Char(' ') => {
-                    if piece.can_place(board) {
-                        board = piece.place(board);
-                        piece = Piece::new(Shape::I);
-                    }
+                for &piece in &queue {
+                    seen.set(piece.pack() as usize, true);
                 }
 
-                KeyCode::Char('i') => piece = Piece::new(Shape::I),
-                KeyCode::Char('j') => piece = Piece::new(Shape::J),
-                KeyCode::Char('l') => piece = Piece::new(Shape::L),
-                KeyCode::Char('o') => piece = Piece::new(Shape::O),
-                KeyCode::Char('s') => piece = Piece::new(Shape::S),
-                KeyCode::Char('t') => piece = Piece::new(Shape::T),
-                KeyCode::Char('z') => piece = Piece::new(Shape::Z),
+                while let Some(piece) = queue.pop() {
+                    for &new_piece in &[
+                        piece.left(board),
+                        piece.right(board),
+                        piece.down(board),
+                        piece.cw(board),
+                        piece.ccw(board),
+                    ] {
+                        if !seen[new_piece.pack() as usize] {
+                            seen.set(new_piece.pack() as usize, true);
 
-                KeyCode::Char('q') => break,
+                            queue.push(new_piece);
 
-                _ => continue,
-            },
-
-            _ => continue,
+                            if new_piece.can_place(board) {
+                                new_results.insert(new_piece.place(board));
+                            }
+                        }
+                    }
+                }
+            }
         }
+
+        results = new_results;
+
+        let mut count = 0;
+        for set in &results.0 {
+            count += set.lock().len();
+        }
+
+        writeln!(stdout, "After iteration {}, have {} boards.", iter, count)?;
     }
 
-    disable_raw_mode()?;
-    queue!(stdout, cursor::Show)?;
-    queue!(stdout, LeaveAlternateScreen)?;
     Ok(())
 }
 
+#[allow(dead_code)]
 fn print_board(out: &mut impl Write, board: Board, piece: Option<Piece>) -> std::io::Result<()> {
     let piece_board = piece.map(Piece::as_board);
 
