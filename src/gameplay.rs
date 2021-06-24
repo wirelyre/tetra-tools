@@ -337,12 +337,7 @@ impl Piece {
     /// See [here](Piece#rotation-system) for more details.
     #[must_use]
     pub fn cw(self, board: Board) -> Piece {
-        let rotation = match self.rotation {
-            Rotation::None => Rotation::Clockwise,
-            Rotation::Clockwise => Rotation::Half,
-            Rotation::Half => Rotation::CounterClockwise,
-            Rotation::CounterClockwise => Rotation::None,
-        };
+        let rotation = self.rotation.cw();
 
         let kicks = &KICKS[self.shape as usize][self.rotation as usize];
         for (kick_col, kick_row) in kicks {
@@ -367,12 +362,7 @@ impl Piece {
     /// See [here](Piece#rotation-system) for more details.
     #[must_use]
     pub fn ccw(self, board: Board) -> Piece {
-        let rotation = match self.rotation {
-            Rotation::None => Rotation::CounterClockwise,
-            Rotation::Clockwise => Rotation::None,
-            Rotation::Half => Rotation::Clockwise,
-            Rotation::CounterClockwise => Rotation::Half,
-        };
+        let rotation = self.rotation.ccw();
 
         let kicks = &KICKS[self.shape as usize][rotation as usize];
         for (kick_col, kick_row) in kicks {
@@ -535,3 +525,29 @@ static KICKS: [&[[(i8, i8); 5]; 4]; 7] = [
 ///
 /// [board]: Board
 const BOARD_MASK: u64 = 0b1111111111_1111111111_1111111111_1111111111;
+
+impl Shape {
+    pub fn bit_mask(self) -> u8 {
+        1 << (self as usize)
+    }
+}
+
+impl Rotation {
+    pub fn cw(self) -> Rotation {
+        match self {
+            Rotation::None => Rotation::Clockwise,
+            Rotation::Clockwise => Rotation::Half,
+            Rotation::Half => Rotation::CounterClockwise,
+            Rotation::CounterClockwise => Rotation::None,
+        }
+    }
+
+    pub fn ccw(self) -> Rotation {
+        match self {
+            Rotation::None => Rotation::CounterClockwise,
+            Rotation::Clockwise => Rotation::None,
+            Rotation::Half => Rotation::Clockwise,
+            Rotation::CounterClockwise => Rotation::Half,
+        }
+    }
+}
