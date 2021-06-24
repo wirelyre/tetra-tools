@@ -19,21 +19,7 @@ fn main() -> std::io::Result<()> {
     results.insert(Board::empty());
 
     for iter in /* 1..=10 */ 1..=5 {
-        let new_results = BoardSet::new();
-
-        rayon::scope(|s| {
-            for set in &results.0 {
-                let new_results = &new_results;
-
-                s.spawn(move |_| {
-                    set.lock()
-                        .par_iter()
-                        .for_each(|bits| process_board(Board(*bits), new_results));
-                })
-            }
-        });
-
-        results = new_results;
+        results = results.par_iter().flat_map_iter(process_board).collect();
 
         let mut count = 0;
         for set in &results.0 {
@@ -46,7 +32,7 @@ fn main() -> std::io::Result<()> {
     Ok(())
 }
 
-fn process_board(board: Board, into: &BoardSet) {
+fn process_board(board: Board) -> Vec<Board> {
     let mut queue = vec![
         Piece::new(Shape::I),
         Piece::new(Shape::J),
@@ -57,6 +43,7 @@ fn process_board(board: Board, into: &BoardSet) {
         Piece::new(Shape::Z),
     ];
     let mut seen = bitvec![0; 0x4000];
+    let mut out = Vec::new();
 
     for &piece in &queue {
         seen.set(piece.pack() as usize, true);
@@ -76,11 +63,13 @@ fn process_board(board: Board, into: &BoardSet) {
                 queue.push(new_piece);
 
                 if new_piece.can_place(board) {
-                    into.insert(new_piece.place(board));
+                    out.push(new_piece.place(board));
                 }
             }
         }
     }
+
+    out
 }
 
 #[allow(dead_code)]
