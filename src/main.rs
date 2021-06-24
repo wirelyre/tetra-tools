@@ -18,15 +18,15 @@ fn main() -> std::io::Result<()> {
     let mut results = BoardSet::new();
     results.insert(Board::empty());
 
-    for iter in /* 1..=10 */ 1..=5 {
+    for iter in /* 1..=10 */ 1..=4 {
         results = results.par_iter().flat_map_iter(process_board).collect();
 
-        let mut count = 0;
-        for set in &results.0 {
-            count += set.lock().len();
-        }
-
-        writeln!(stdout, "After iteration {}, have {} boards.", iter, count)?;
+        writeln!(
+            stdout,
+            "After iteration {}, have {} boards.",
+            iter,
+            results.count()
+        )?;
     }
 
     Ok(())

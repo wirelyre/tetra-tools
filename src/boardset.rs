@@ -1,11 +1,9 @@
-use parking_lot::Mutex;
 use rayon::prelude::*;
 use std::collections::HashSet;
-use std::sync::Arc;
 
 use crate::gameplay::Board;
 
-pub struct BoardSet(pub Vec<Arc<Mutex<HashSet<Board>>>>);
+pub struct BoardSet(pub Vec<HashSet<Board>>);
 
 const LOW_BITS_MASK: u64 = 0b1111111111;
 // const LOW_BITS_MASK: u64 = 0b1111111111_1111111111;
@@ -15,7 +13,7 @@ impl BoardSet {
         let mut v = Vec::new();
 
         for _ in 0..(LOW_BITS_MASK + 1) {
-            v.push(Arc::new(Mutex::new(HashSet::new())))
+            v.push(HashSet::new());
         }
 
         BoardSet(v)
@@ -23,14 +21,18 @@ impl BoardSet {
 
     pub fn get(&self, board: Board) -> bool {
         let low_bits = (board.0 & LOW_BITS_MASK) as usize;
-        let subset = self.0[low_bits].lock();
+        let subset = &self.0[low_bits];
         subset.contains(&board)
     }
 
-    pub fn insert(&self, board: Board) {
+    pub fn insert(&mut self, board: Board) {
         let low_bits = (board.0 & LOW_BITS_MASK) as usize;
-        let mut subset = self.0[low_bits].lock();
+        let subset = &mut self.0[low_bits];
         subset.insert(board);
+    }
+
+    pub fn count(&self) -> usize {
+        self.0.iter().map(HashSet::len).sum()
     }
 }
 
@@ -43,11 +45,11 @@ impl<'a> ParallelIterator for Iter<'a> {
     where
         C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
     {
-        let guards: Vec<_> = self.0 .0.iter().map(|subset| subset.lock()).collect();
-
-        let boards = guards
+        let boards = self
+            .0
+             .0
             .par_iter()
-            .flat_map(|guard| guard.par_iter().cloned());
+            .flat_map(|subset| subset.par_iter().cloned());
 
         boards.drive_unindexed(consumer)
     }
@@ -68,8 +70,24 @@ impl FromParallelIterator<Board> for BoardSet {
     where
         I: IntoParallelIterator<Item = Board>,
     {
-        let set = BoardSet::new();
-        par_iter.into_par_iter().for_each(|board| set.insert(board));
+        let mut set = BoardSet::new();
+
+        crossbeam::scope(|s| {
+            let (send, recv) = crossbeam::channel::unbounded();
+
+            let set = &mut set;
+            s.spawn(move |_| {
+                while let Ok(board) = recv.recv() {
+                    set.insert(board);
+                }
+            });
+
+            par_iter
+                .into_par_iter()
+                .for_each_with(send, |send, board| send.send(board).unwrap());
+        })
+        .unwrap();
+
         set
     }
 }
