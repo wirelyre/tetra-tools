@@ -527,10 +527,14 @@ static KICKS: [&[[(i8, i8); 5]; 4]; 7] = [
 const BOARD_MASK: u64 = 0b1111111111_1111111111_1111111111_1111111111;
 
 impl Shape {
+    /// Select a single bit according to a shape.
+    ///
+    /// There are 7 shapes, so every shape can fit in 8 bits.
     pub fn bit_mask(self) -> u8 {
         1 << (self as usize)
     }
 
+    /// Array of all shapes.
     pub const ALL: [Shape; 7] = [
         Shape::I,
         Shape::J,
@@ -541,12 +545,14 @@ impl Shape {
         Shape::Z,
     ];
 
+    /// Get the single-character name of a shape.
     pub fn name(self) -> &'static str {
         ["I", "J", "L", "O", "S", "T", "Z"][self as usize]
     }
 }
 
 impl Rotation {
+    /// The rotation clockwise from the given one.
     pub fn cw(self) -> Rotation {
         match self {
             Rotation::None => Rotation::Clockwise,
@@ -556,6 +562,7 @@ impl Rotation {
         }
     }
 
+    /// The rotation counter-clockwise from the given one.
     pub fn ccw(self) -> Rotation {
         match self {
             Rotation::None => Rotation::CounterClockwise,
