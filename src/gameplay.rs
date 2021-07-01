@@ -530,6 +530,20 @@ impl Shape {
     pub fn bit_mask(self) -> u8 {
         1 << (self as usize)
     }
+
+    pub const ALL: [Shape; 7] = [
+        Shape::I,
+        Shape::J,
+        Shape::L,
+        Shape::O,
+        Shape::S,
+        Shape::T,
+        Shape::Z,
+    ];
+
+    pub fn name(self) -> &'static str {
+        ["I", "J", "L", "O", "S", "T", "Z"][self as usize]
+    }
 }
 
 impl Rotation {

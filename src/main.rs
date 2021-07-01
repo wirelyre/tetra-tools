@@ -4,15 +4,15 @@ pub mod gamestategraph;
 
 use std::io::{stdout, Write};
 
-use crate::gamestategraph::{Bag, GameStateGraph, QuantumBag};
+use crate::gamestategraph::{GameStateGraph, QuantumBag};
 
 fn main() -> std::io::Result<()> {
     let mut stdout = stdout();
 
     let mut graphs = Vec::new();
-    graphs.push(GameStateGraph::new(QuantumBag::new(Bag::full())));
+    graphs.push(GameStateGraph::new(QuantumBag::every_bag_no_hold()));
 
-    for iter in 1..=10 {
+    for iter in 1..=4 {
         graphs.push(graphs.last().unwrap().step());
 
         writeln!(

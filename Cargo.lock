@@ -267,6 +267,7 @@ dependencies = [
  "crossterm",
  "parking_lot",
  "rayon",
+ "smallvec",
 ]
 
 [[package]]

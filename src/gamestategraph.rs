@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use bitvec::bitvec;
 use parking_lot::Mutex;
 use rayon::prelude::*;
+use smallvec::{smallvec, SmallVec};
 
 use crate::gameplay::{Board, Piece, Shape};
 
@@ -10,6 +11,7 @@ const LOW_BITS_MASK: u64 = 0b1111111111;
 // const LOW_BITS_MASK: u64 = 0b1111111111_1111111111;
 
 pub struct GameStateGraph(pub Vec<Mutex<HashMap<Board, QuantumBag>>>);
+pub struct GraphRef<'a>(Vec<parking_lot::MutexGuard<'a, HashMap<Board, QuantumBag>>>);
 
 impl GameStateGraph {
     pub fn empty() -> GameStateGraph {
@@ -99,57 +101,170 @@ impl GameStateGraph {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
-pub struct Bag(u8);
-
-impl Bag {
-    pub fn full() -> Bag {
-        Bag(0b1111111)
-    }
-
-    pub fn has(self, shape: Shape) -> bool {
-        (self.0 & shape.bit_mask()) != 0
-    }
-
-    pub fn without(self, shape: Shape) -> Bag {
-        let bits = self.0 & !shape.bit_mask();
-
-        if bits == 0 {
-            Bag::full()
-        } else {
-            Bag(bits)
-        }
-    }
-
-    fn either(self, other: Bag) -> Bag {
-        Bag(self.0 | other.0)
+impl<'a> GraphRef<'a> {
+    pub fn get(&self, board: Board) -> Option<&QuantumBag> {
+        self.0[(board.0 & LOW_BITS_MASK) as usize].get(&board)
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct QuantumBag(Vec<Bag>);
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
+pub enum MaybeShape {
+    I,
+    J,
+    L,
+    O,
+    S,
+    T,
+    Z,
+    None,
+}
+
+impl From<Shape> for MaybeShape {
+    fn from(shape: Shape) -> Self {
+        match shape {
+            Shape::I => MaybeShape::I,
+            Shape::J => MaybeShape::J,
+            Shape::L => MaybeShape::L,
+            Shape::O => MaybeShape::O,
+            Shape::S => MaybeShape::S,
+            Shape::T => MaybeShape::T,
+            Shape::Z => MaybeShape::Z,
+        }
+    }
+}
+
+impl From<Option<Shape>> for MaybeShape {
+    fn from(option_shape: Option<Shape>) -> Self {
+        match option_shape {
+            Some(shape) => shape.into(),
+            None => MaybeShape::None,
+        }
+    }
+}
+
+impl From<MaybeShape> for Option<Shape> {
+    fn from(maybe_shape: MaybeShape) -> Self {
+        match maybe_shape {
+            MaybeShape::I => Some(Shape::I),
+            MaybeShape::J => Some(Shape::J),
+            MaybeShape::L => Some(Shape::L),
+            MaybeShape::O => Some(Shape::O),
+            MaybeShape::S => Some(Shape::S),
+            MaybeShape::T => Some(Shape::T),
+            MaybeShape::Z => Some(Shape::Z),
+            MaybeShape::None => None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct Bag {
+    shapes: u8,
+    hold: MaybeShape,
+}
+
+impl Bag {
+    pub fn full_no_hold() -> Bag {
+        Bag {
+            shapes: 0b1111111,
+            hold: None.into(),
+        }
+    }
+
+    pub fn take(self, shape: Shape) -> QuantumBag {
+        let mut result = QuantumBag::empty();
+
+        if self.has(shape) {
+            result.0.push(self.without(shape));
+        }
+
+        if self.hold == shape.into() {
+            result.0.push(Bag {
+                shapes: self.shapes,
+                hold: None.into(),
+            });
+        } else if self.hold == None.into() {
+            for &hold_shape in &Shape::ALL {
+                if self.has(hold_shape) {
+                    let mut new = self.without(hold_shape);
+                    new.hold = hold_shape.into();
+
+                    if new.has(shape) {
+                        result.0.push(new.without(shape));
+                    }
+                }
+            }
+        }
+
+        result
+    }
+
+    fn has(self, shape: Shape) -> bool {
+        (self.shapes & shape.bit_mask()) != 0
+    }
+
+    fn without(self, shape: Shape) -> Bag {
+        let shapes = self.shapes & !shape.bit_mask();
+        let shapes = if shapes == 0 { 0b1111111 } else { shapes };
+
+        Bag {
+            shapes,
+            hold: self.hold,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct QuantumBag(SmallVec<[Bag; 8]>);
 
 impl QuantumBag {
     pub fn new(initial: Bag) -> QuantumBag {
-        QuantumBag(vec![initial])
+        QuantumBag(smallvec![initial])
     }
 
     pub fn empty() -> QuantumBag {
-        QuantumBag(Vec::new())
+        QuantumBag(SmallVec::new())
+    }
+
+    pub fn every_bag_no_hold() -> QuantumBag {
+        let each_bits = (0b0000001..=0b1111111).into_iter();
+
+        QuantumBag(
+            each_bits
+                .map(|bits| Bag {
+                    shapes: bits,
+                    hold: None.into(),
+                })
+                .collect(),
+        )
+    }
+
+    pub fn available_pieces(&self) -> u8 {
+        let mut result = 0;
+
+        for &bag in &self.0 {
+            result |= bag.shapes;
+
+            let shape: Option<Shape> = bag.hold.into();
+            if let Some(shape) = shape {
+                result |= shape.bit_mask();
+            }
+        }
+
+        result
     }
 
     pub fn par_iter_take_one(&self) -> QuantumBagTakeOneParIter<'_> {
-        let available_pieces = self.0.iter().cloned().fold(Bag(0), Bag::either);
-
         QuantumBagTakeOneParIter {
-            available_pieces,
+            available_pieces: self.available_pieces(),
             slice: &self.0,
         }
     }
 }
 
 pub struct QuantumBagTakeOneParIter<'a> {
-    available_pieces: Bag,
+    available_pieces: u8,
     slice: &'a [Bag],
 }
 
@@ -160,19 +275,9 @@ impl<'a> ParallelIterator for QuantumBagTakeOneParIter<'a> {
     where
         C: rayon::iter::plumbing::UnindexedConsumer<Self::Item>,
     {
-        let all_shapes: [Shape; 7] = [
-            Shape::I,
-            Shape::J,
-            Shape::L,
-            Shape::O,
-            Shape::S,
-            Shape::T,
-            Shape::Z,
-        ];
-
-        all_shapes
+        Shape::ALL
             .into_par_iter()
-            .filter(|shape| self.available_pieces.has(*shape))
+            .filter(|shape| (self.available_pieces & shape.bit_mask()) != 0)
             .map(|shape| {
                 (
                     shape,
@@ -194,13 +299,43 @@ pub struct QuantumBagUpdater<'a> {
 impl<'a> QuantumBagUpdater<'a> {
     pub fn update(&self, quantum_bag: &mut QuantumBag) {
         for old_bag in self.old {
-            if old_bag.has(self.shape) {
-                let new_bag = old_bag.without(self.shape);
-
+            for new_bag in old_bag.take(self.shape).0 {
                 if !quantum_bag.0.contains(&new_bag) {
                     quantum_bag.0.push(new_bag);
                 }
             }
         }
+    }
+}
+
+impl std::fmt::Display for Bag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        for &shape in &Shape::ALL {
+            if self.has(shape) {
+                f.write_str(shape.name())?;
+            }
+        }
+
+        let hold: Option<Shape> = self.hold.into();
+        if let Some(shape) = hold {
+            write!(f, " ({})", shape.name())?;
+        }
+
+        Ok(())
+    }
+}
+
+impl std::fmt::Display for QuantumBag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut bags: Vec<_> = self.0.iter().collect();
+        bags.sort_unstable();
+
+        write!(f, "QuantumBag:\n")?;
+
+        for bag in bags {
+            write!(f, "    {}\n", bag)?;
+        }
+
+        Ok(())
     }
 }
