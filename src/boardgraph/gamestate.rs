@@ -1,47 +1,23 @@
-use std::collections::HashMap;
-
 use bitvec::bitvec;
-use parking_lot::Mutex;
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
 
-use crate::gameplay::{Board, Piece, Shape};
+use super::Stage;
+use crate::gameplay::{Piece, Shape};
 
-const LOW_BITS_MASK: u64 = 0b1111111111;
-// const LOW_BITS_MASK: u64 = 0b1111111111_1111111111;
+pub struct GameStateStage(pub Stage<QuantumBag>);
 
-pub struct GameStateGraph(pub Vec<Mutex<HashMap<Board, QuantumBag>>>);
-pub struct GraphRef<'a>(Vec<parking_lot::MutexGuard<'a, HashMap<Board, QuantumBag>>>);
-
-impl GameStateGraph {
-    pub fn empty() -> GameStateGraph {
-        let mut subsets = Vec::new();
-
-        for _ in 0..LOW_BITS_MASK + 1 {
-            subsets.push(Mutex::new(HashMap::new()));
-        }
-
-        GameStateGraph(subsets)
+impl GameStateStage {
+    pub fn new(first_bag: QuantumBag) -> GameStateStage {
+        GameStateStage(Stage::initial(first_bag))
     }
 
-    pub fn new(first_bag: QuantumBag) -> GameStateGraph {
-        let me = GameStateGraph::empty();
+    pub fn step(&self) -> GameStateStage {
+        let new_stage = GameStateStage(Stage::empty());
 
-        let empty_board = Board::empty();
-        me.0[(empty_board.0 & LOW_BITS_MASK) as usize]
-            .lock()
-            .insert(empty_board, first_bag);
-
-        me
-    }
-
-    pub fn step(&self) -> GameStateGraph {
-        let new_graph = GameStateGraph::empty();
-        let guards: Vec<_> = self.0.iter().map(Mutex::lock).collect();
-
-        guards
+        self.0
+            .lock_all()
             .par_iter()
-            .flat_map(|subset| subset.par_iter())
             .flat_map(|(&board, quantum_bag)| {
                 quantum_bag
                     .par_iter_take_one()
@@ -68,8 +44,7 @@ impl GameStateGraph {
 
                             if new_piece.can_place(board) {
                                 let new_board = new_piece.place(board);
-                                let mut subset =
-                                    new_graph.0[(new_board.0 & LOW_BITS_MASK) as usize].lock();
+                                let mut subset = new_stage.0.lock_subset(board);
 
                                 let new_quantum_bag =
                                     subset.entry(new_board).or_insert_with(QuantumBag::empty);
@@ -80,15 +55,16 @@ impl GameStateGraph {
                 }
             });
 
-        new_graph
+        new_stage
     }
 
-    pub fn count(&self) -> usize {
-        self.0.iter().map(|subset| subset.lock().len()).sum()
+    pub fn count_boards(&self) -> usize {
+        self.0 .0.iter().map(|subset| subset.lock().len()).sum()
     }
 
     pub fn count_bags(&self) -> usize {
         self.0
+             .0
             .iter()
             .map(|subset| {
                 subset
@@ -98,12 +74,6 @@ impl GameStateGraph {
                     .sum::<usize>()
             })
             .sum()
-    }
-}
-
-impl<'a> GraphRef<'a> {
-    pub fn get(&self, board: Board) -> Option<&QuantumBag> {
-        self.0[(board.0 & LOW_BITS_MASK) as usize].get(&board)
     }
 }
 

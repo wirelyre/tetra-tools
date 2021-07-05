@@ -1,26 +1,25 @@
-pub mod boardset;
+pub mod boardgraph;
 pub mod gameplay;
-pub mod gamestategraph;
 
 use std::io::{stdout, Write};
 
-use crate::gamestategraph::{GameStateGraph, QuantumBag};
+use crate::boardgraph::gamestate::{GameStateStage, QuantumBag};
 
 fn main() -> std::io::Result<()> {
     let mut stdout = stdout();
 
-    let mut graphs = Vec::new();
-    graphs.push(GameStateGraph::new(QuantumBag::every_bag_no_hold()));
+    let mut stages = Vec::new();
+    stages.push(GameStateStage::new(QuantumBag::every_bag_no_hold()));
 
     for iter in 1..=4 {
-        graphs.push(graphs.last().unwrap().step());
+        stages.push(stages.last().unwrap().step());
 
         writeln!(
             stdout,
             "After iteration {}, have {} boards ({} bags).",
             iter,
-            graphs.last().unwrap().count(),
-            graphs.last().unwrap().count_bags(),
+            stages.last().unwrap().count_boards(),
+            stages.last().unwrap().count_bags(),
         )?;
     }
 
