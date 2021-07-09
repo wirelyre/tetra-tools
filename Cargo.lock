@@ -265,6 +265,7 @@ dependencies = [
  "bitvec",
  "crossbeam",
  "crossterm",
+ "num_cpus",
  "parking_lot",
  "rayon",
  "smallvec",

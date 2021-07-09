@@ -1,4 +1,5 @@
 pub mod boardgraph;
+pub mod counter;
 pub mod gameplay;
 
 use boardgraph::simple::SimpleGraph;

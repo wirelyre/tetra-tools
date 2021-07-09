@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, io::Write, time::Duration};
 
 use rayon::prelude::*;
 use smallvec::SmallVec;
@@ -6,6 +6,7 @@ use smallvec::SmallVec;
 use super::Stage;
 use crate::{
     boardgraph::PiecePlacer,
+    counter::Counter,
     gameplay::{Board, Shape},
 };
 
@@ -17,7 +18,30 @@ impl SimpleGraph {
         forward_stages.push(SimpleStage::new());
 
         for iter in 1..=4 {
-            forward_stages.push(forward_stages.last().unwrap().step());
+            let counter = Counter::zero();
+            let total = forward_stages.last().unwrap().count_boards();
+
+            crossbeam::scope(|s| {
+                s.spawn(|_| loop {
+                    let counted = counter.get();
+                    print!(
+                        "\r{} / {} ({:>5.2}%)",
+                        counted,
+                        total,
+                        (counted as f64) / (total as f64) * 100.
+                    );
+                    std::io::stdout().flush().unwrap();
+                    if counted == total as u64 {
+                        print!("\n");
+                        return;
+                    }
+                    std::thread::sleep(Duration::from_millis(100));
+                });
+
+                forward_stages.push(forward_stages.last().unwrap().step(&counter));
+            })
+            .unwrap();
+
             println!(
                 "After iteration {}, have {} boards.",
                 iter,
@@ -55,14 +79,11 @@ impl SimpleStage {
         SimpleStage(Stage::initial(SmallVec::new()))
     }
 
-    pub fn step(&self) -> SimpleStage {
+    pub fn step(&self, counter: &Counter) -> SimpleStage {
         let new_stage = SimpleStage(Stage::empty());
 
-        self.0
-            .lock_all()
-            .par_iter()
-            .flat_map(|(&board, _preds)| Shape::ALL.par_iter().map(move |&shape| (board, shape)))
-            .for_each(|(board, shape)| {
+        self.0.lock_all().par_iter().for_each(|(&board, _preds)| {
+            Shape::ALL.par_iter().for_each(|&shape| {
                 for (_, new_board) in PiecePlacer::new(board, shape) {
                     let mut subset = new_stage.0.lock_subset(new_board);
                     let entry = subset.entry(new_board).or_insert_with(SmallVec::new);
@@ -72,6 +93,9 @@ impl SimpleStage {
                     }
                 }
             });
+
+            counter.increment();
+        });
 
         new_stage
     }
