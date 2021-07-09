@@ -1,5 +1,7 @@
 //! Game data types and physics.
 
+use serde::{Deserialize, Serialize};
+
 /// A packed bit representation of a board.
 ///
 /// Bit 0 (the least significant bit) represents the bottom left of the board.
@@ -10,7 +12,7 @@
 /// set.  The top 24 bits are always clear.
 ///
 /// This type is `Copy` because it is intended to be cheap to use.
-#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub struct Board(pub u64);
 
 /// A piece, stored as [`shape`], coordinates, and [`rotation`].

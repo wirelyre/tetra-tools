@@ -12,64 +12,87 @@ use crate::{
 
 pub struct SimpleGraph(pub Vec<SimpleStage>);
 
-impl SimpleGraph {
-    pub fn compute() -> SimpleGraph {
-        let mut forward_stages = Vec::new();
-        forward_stages.push(SimpleStage::new());
+pub fn compute() -> Vec<Board> {
+    let mut forward_stages = Vec::new();
+    forward_stages.push(SimpleStage::new());
 
-        for iter in 1..=4 {
-            let counter = Counter::zero();
-            let total = forward_stages.last().unwrap().count_boards();
+    for iter in 1..=4 {
+        let counter = Counter::zero();
+        let total = forward_stages.last().unwrap().count_boards();
 
-            crossbeam::scope(|s| {
-                s.spawn(|_| loop {
-                    let counted = counter.get();
-                    print!(
-                        "\r{} / {} ({:>5.2}%)",
-                        counted,
-                        total,
-                        (counted as f64) / (total as f64) * 100.
-                    );
-                    std::io::stdout().flush().unwrap();
-                    if counted == total as u64 {
-                        print!("\n");
-                        return;
-                    }
-                    std::thread::sleep(Duration::from_millis(100));
-                });
+        crossbeam::scope(|s| {
+            s.spawn(|_| loop {
+                let counted = counter.get();
+                eprint!(
+                    "\r{:>12} / {:>12} ({:>6.2}%)",
+                    counted,
+                    total,
+                    (counted as f64) / (total as f64) * 100.
+                );
+                std::io::stdout().flush().unwrap();
+                if counted == total as u64 {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            });
 
-                forward_stages.push(forward_stages.last().unwrap().step(&counter));
-            })
-            .unwrap();
+            forward_stages.push(forward_stages.last().unwrap().step(&counter));
+        })
+        .unwrap();
 
-            println!(
-                "After iteration {}, have {} boards.",
-                iter,
-                forward_stages.last().unwrap().count_boards()
-            );
-        }
-
-        let mut backward_stages = Vec::new();
-        let mut target_stage = forward_stages
-            .pop()
-            .unwrap()
-            .filter(Board(0b0000000111_0000001111_0000011111_0000001111));
-
-        while let Some(stage) = forward_stages.pop() {
-            let this_stage = stage.target(&target_stage);
-            backward_stages.push(target_stage);
-            target_stage = this_stage;
-        }
-
-        backward_stages.push(target_stage);
-        backward_stages.reverse();
-
-        for (i, stage) in backward_stages.iter().enumerate() {
-            println!("After stage {}, have {} boards.", i, stage.count_boards());
-        }
-
-        SimpleGraph(backward_stages)
+        eprintln!(
+            "  After iteration {}, have {} boards.",
+            iter,
+            forward_stages.last().unwrap().count_boards()
+        );
     }
+
+    let mut all_boards = Vec::new();
+    const TARGET_BOARD: Board = Board(0b0000000111_0000001111_0000011111_0000001111);
+    all_boards.push(TARGET_BOARD);
+
+    let mut target_stage = forward_stages.pop().unwrap().filter(TARGET_BOARD);
+
+    for (i, stage) in forward_stages.drain(..).enumerate().rev() {
+        let counter = Counter::zero();
+        let total = stage.0.lock_all().count();
+
+        let this_stage = crossbeam::scope(|s| {
+            s.spawn(|_| loop {
+                let counted = counter.get();
+                eprint!(
+                    "\r{:>12} / {:>12} ({:>6.2}%)",
+                    counted,
+                    total,
+                    (counted as f64) / (total as f64) * 100.
+                );
+                std::io::stdout().flush().unwrap();
+                if counted == total as u64 {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            });
+
+            stage.target(&target_stage, &counter)
+        })
+        .unwrap();
+
+        eprintln!(
+            "  After stage {}, have {} boards.",
+            i,
+            this_stage.count_boards()
+        );
+
+        for (board, _preds) in this_stage.0.lock_all().iter() {
+            all_boards.push(board);
+        }
+
+        target_stage = this_stage;
+    }
+
+    all_boards.par_sort_unstable();
+
+    all_boards
 }
 
 pub struct SimpleStage(pub Stage<SmallVec<[Board; 6]>>);
@@ -113,7 +136,7 @@ impl SimpleStage {
         new_stage
     }
 
-    pub fn target(&self, target: &SimpleStage) -> SimpleStage {
+    pub fn target(&self, target: &SimpleStage, counter: &Counter) -> SimpleStage {
         let target = target.0.lock_all();
         let new_stage = SimpleStage(Stage::empty());
 
@@ -125,6 +148,7 @@ impl SimpleStage {
 
         self.0.lock_all().par_iter().for_each(|(&board, preds)| {
             if !target_preds.contains(&board) {
+                counter.increment();
                 return;
             }
 
@@ -132,10 +156,13 @@ impl SimpleStage {
                 for (_, new_board) in PiecePlacer::new(board, shape) {
                     if target.get(new_board).is_some() {
                         new_stage.0.lock_subset(board).insert(board, preds.clone());
+                        counter.increment();
                         return;
                     }
                 }
             }
+
+            counter.increment();
         });
 
         new_stage
