@@ -44,7 +44,7 @@ impl GameStateStage {
 
                             if new_piece.can_place(board) {
                                 let new_board = new_piece.place(board);
-                                let mut subset = new_stage.0.lock_subset(board);
+                                let mut subset = new_stage.0.lock_subset(new_board);
 
                                 let new_quantum_bag =
                                     subset.entry(new_board).or_insert_with(QuantumBag::empty);
