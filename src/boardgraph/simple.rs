@@ -1,4 +1,7 @@
+use std::collections::HashSet;
+
 use rayon::prelude::*;
+use smallvec::SmallVec;
 
 use super::Stage;
 use crate::{
@@ -45,11 +48,11 @@ impl SimpleGraph {
     }
 }
 
-pub struct SimpleStage(pub Stage<()>);
+pub struct SimpleStage(pub Stage<SmallVec<[Board; 6]>>);
 
 impl SimpleStage {
     pub fn new() -> SimpleStage {
-        SimpleStage(Stage::initial(()))
+        SimpleStage(Stage::initial(SmallVec::new()))
     }
 
     pub fn step(&self) -> SimpleStage {
@@ -58,12 +61,15 @@ impl SimpleStage {
         self.0
             .lock_all()
             .par_iter()
-            .flat_map(|(&board, &())| Shape::ALL.par_iter().map(move |&shape| (board, shape)))
+            .flat_map(|(&board, _preds)| Shape::ALL.par_iter().map(move |&shape| (board, shape)))
             .for_each(|(board, shape)| {
                 for (_, new_board) in PiecePlacer::new(board, shape) {
                     let mut subset = new_stage.0.lock_subset(new_board);
+                    let entry = subset.entry(new_board).or_insert_with(SmallVec::new);
 
-                    subset.insert(new_board, ());
+                    if !entry.contains(&board) {
+                        entry.push(board);
+                    }
                 }
             });
 
@@ -75,10 +81,10 @@ impl SimpleStage {
     }
 
     pub fn filter(&self, board: Board) -> SimpleStage {
-        assert!(self.0.lock_subset(board).get(&board).is_some());
+        let preds = self.0.lock_subset(board).get(&board).unwrap().clone();
 
         let new_stage = SimpleStage(Stage::empty());
-        new_stage.0.lock_subset(board).insert(board, ());
+        new_stage.0.lock_subset(board).insert(board, preds);
 
         new_stage
     }
@@ -87,11 +93,21 @@ impl SimpleStage {
         let target = target.0.lock_all();
         let new_stage = SimpleStage(Stage::empty());
 
-        self.0.lock_all().par_iter().for_each(|(&board, &())| {
+        let target_preds: HashSet<Board> = target
+            .iter()
+            .flat_map(|(_board, preds)| preds)
+            .copied()
+            .collect();
+
+        self.0.lock_all().par_iter().for_each(|(&board, preds)| {
+            if !target_preds.contains(&board) {
+                return;
+            }
+
             for &shape in &Shape::ALL {
                 for (_, new_board) in PiecePlacer::new(board, shape) {
                     if target.get(new_board).is_some() {
-                        new_stage.0.lock_subset(board).insert(board, ());
+                        new_stage.0.lock_subset(board).insert(board, preds.clone());
                         return;
                     }
                 }
