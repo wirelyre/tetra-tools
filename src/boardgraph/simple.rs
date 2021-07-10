@@ -16,7 +16,7 @@ pub fn compute() -> Vec<Board> {
     let mut forward_stages = Vec::new();
     forward_stages.push(SimpleStage::new());
 
-    for iter in 1..=4 {
+    for iter in 1..=10 {
         let counter = Counter::zero();
         let total = forward_stages.last().unwrap().count_boards();
 
@@ -48,7 +48,7 @@ pub fn compute() -> Vec<Board> {
     }
 
     let mut all_boards = Vec::new();
-    const TARGET_BOARD: Board = Board(0b0000000111_0000001111_0000011111_0000001111);
+    const TARGET_BOARD: Board = Board(0b1111111111_1111111111_1111111111_1111111111);
     all_boards.push(TARGET_BOARD);
 
     let mut target_stage = forward_stages.pop().unwrap().filter(TARGET_BOARD);

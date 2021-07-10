@@ -9,8 +9,8 @@ use rayon::prelude::*;
 
 use crate::gameplay::{Board, Piece, Shape};
 
-const LOW_BITS_MASK: u64 = 0b1111111111;
-// const LOW_BITS_MASK: u64 = 0b1111111111_1111111111;
+// const LOW_BITS_MASK: u64 = 0b1111111111;
+const LOW_BITS_MASK: u64 = 0b1111111111_1111111111;
 
 pub struct Stage<T>(pub Vec<Mutex<HashMap<Board, T>>>);
 pub struct StageRef<'a, T>(Vec<parking_lot::MutexGuard<'a, HashMap<Board, T>>>);
