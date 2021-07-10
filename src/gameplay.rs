@@ -127,24 +127,36 @@ impl Board {
 
     /// Check whether the board has a cell that cannot be filled.
     ///
-    /// If the two columns surrounding an empty cell are both full (or if one
-    /// side is a wall and the other is a full column), the only way to fill the
-    /// cell is to use a vertical I piece to fill the entire column.  If the
-    /// middle column has at least one full cell, this will never work.
+    /// If the two cells to the left and right of an empty cell are both full
+    /// (or if one side is a wall and the other is a filled cell), filling the
+    /// cell will require filling some other cell in the column.
     ///
-    /// This method uses fragile bit magic to do the check.
+    /// If all empty cells in a column are bounded on the left and right, the
+    /// only way to fill them is to use a vertical I piece to fill the entire
+    /// column.  This is true even if the lines are reordered, which happens
+    /// when lines are cleared.  If the column has at least one full cell, it
+    /// will never be possible to place a vertical I piece.
     ///
-    /// Early testing indicates that this simple check isn't worth it.  It will
-    /// need to be more complex to save much time.
+    /// This method uses fragile and *unproven* bit magic to do the check.  **It
+    /// might produce wrong answers.**
+    ///
+    /// Early testing indicates that this check saves a lot of time by culling
+    /// unusable boards early.
     pub fn has_isolated_cell(self) -> bool {
         let full = (self.0 >> 30) & (self.0 >> 20) & (self.0 >> 10) & (self.0 >> 0);
-        let not_empty =
-            (self.0 >> 30) | (self.0 >> 20) | (self.0 >> 10) | (self.0 >> 0) /* & 0b1111111111 */;
+        let not_empty = (self.0 >> 30) | (self.0 >> 20) | (self.0 >> 10) | (self.0 >> 0);
 
-        let left_bounded = (full << 1) | 0b0000000001;
-        let right_bounded = (full >> 1) | 0b1000000000;
+        let bounded = {
+            let left_bounded = (self.0 << 1) | 0b0000000001_0000000001_0000000001_0000000001;
+            let right_bounded = (self.0 >> 1) | 0b1000000000_1000000000_1000000000_1000000000;
+            let bounded_cells = (left_bounded & right_bounded) | self.0;
+            (bounded_cells >> 30)
+                & (bounded_cells >> 20)
+                & (bounded_cells >> 10)
+                & (bounded_cells >> 0)
+        };
 
-        (left_bounded & not_empty & !full & right_bounded) != 0
+        (not_empty & !full & bounded) != 0
     }
 }
 
