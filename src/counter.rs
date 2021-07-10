@@ -1,12 +1,13 @@
+use crossbeam::utils::CachePadded;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-pub struct Counter(Vec<AtomicU64>);
+pub struct Counter(Vec<CachePadded<AtomicU64>>);
 
 impl Counter {
     pub fn zero() -> Counter {
         let mut vec = Vec::new();
 
-        vec.resize_with(num_cpus::get(), || AtomicU64::new(0));
+        vec.resize_with(num_cpus::get(), || CachePadded::new(AtomicU64::new(0)));
 
         Counter(vec)
     }
