@@ -124,6 +124,28 @@ impl Board {
         let mask = 1 << (row * 10 + col);
         (self.0 & mask) != 0
     }
+
+    /// Check whether the board has a cell that cannot be filled.
+    ///
+    /// If the two columns surrounding an empty cell are both full (or if one
+    /// side is a wall and the other is a full column), the only way to fill the
+    /// cell is to use a vertical I piece to fill the entire column.  If the
+    /// middle column has at least one full cell, this will never work.
+    ///
+    /// This method uses fragile bit magic to do the check.
+    ///
+    /// Early testing indicates that this simple check isn't worth it.  It will
+    /// need to be more complex to save much time.
+    pub fn has_isolated_cell(self) -> bool {
+        let full = (self.0 >> 30) & (self.0 >> 20) & (self.0 >> 10) & (self.0 >> 0);
+        let not_empty =
+            (self.0 >> 30) | (self.0 >> 20) | (self.0 >> 10) | (self.0 >> 0) /* & 0b1111111111 */;
+
+        let left_bounded = (full << 1) | 0b0000000001;
+        let right_bounded = (full >> 1) | 0b1000000000;
+
+        (left_bounded & not_empty & !full & right_bounded) != 0
+    }
 }
 
 impl Piece {
