@@ -137,26 +137,138 @@ impl Board {
     /// when lines are cleared.  If the column has at least one full cell, it
     /// will never be possible to place a vertical I piece.
     ///
-    /// This method uses fragile and *unproven* bit magic to do the check.  **It
-    /// might produce wrong answers.**
+    /// This method uses subtle bit magic to do the check.
     ///
-    /// Early testing indicates that this check saves a lot of time by culling
-    /// unusable boards early.
+    /// This check saves a lot of time by culling unusable boards early.
     pub fn has_isolated_cell(self) -> bool {
+        // Combine rows in two ways:
+        //   Is the column full?
+        //   Is the column non-empty?
+        // These are 10-bit vectors, where each bit represents a column.
+        // (The top bits of `not_empty` are garbage, but this is fixed later.)
+
         let full = (self.0 >> 30) & (self.0 >> 20) & (self.0 >> 10) & (self.0 >> 0);
         let not_empty = (self.0 >> 30) | (self.0 >> 20) | (self.0 >> 10) | (self.0 >> 0);
 
         let bounded = {
+            // A cell is left-bounded if the cell one bit down is full,
+            //   or if it's on the left edge.
+            // Bits wrap around the edge, but they are always on after the "or" anyway.
+            // (Bit 40 is garbage, but this is fixed shortly.)
+
             let left_bounded = (self.0 << 1) | 0b0000000001_0000000001_0000000001_0000000001;
             let right_bounded = (self.0 >> 1) | 0b1000000000_1000000000_1000000000_1000000000;
+
+            // Is each cell either full, or both left- and right-bounded?
+            // Bit 40 of `right_bounded` is 0, so bits 40-63 of the result are
+            //   correctly clear.
+
             let bounded_cells = (left_bounded & right_bounded) | self.0;
+
+            // Combine boundedness into a 10-bit vector.
+            // Bits 10-63 of the result will be clear
+            //   because bits 10-63 of `(bounded_cells >> 30)` are clear.
             (bounded_cells >> 30)
                 & (bounded_cells >> 20)
                 & (bounded_cells >> 10)
                 & (bounded_cells >> 0)
         };
 
+        // Is any column:
+        //   - not empty, and
+        //   - not full, and
+        //   - each empty cell is left- and right-bounded?
+        // If any of bits 0-9 are set, then some column has the property
+        //   and the board is unusable.
+
+        // Bits 10-63 of `not_empty` and `!full` are garbage.
+        // But bits 10-63 of `bounded` are clear, so the garbage is cleared.
+
         (not_empty & !full & bounded) != 0
+    }
+
+    /// Check whether the board has a disconnected section that cannot be
+    /// exactly filled.
+    ///
+    /// When a sequence of pieces are placed, the number of cells they fill is a
+    /// multiple of four.
+    ///
+    /// So if a section of empty cells is disconnected from the rest of the
+    /// board (that is, the empty cells will never touch any other cells in
+    /// another section), but the number of empty cells is *not* a multiple of
+    /// four, then no sequence of pieces can fill the section.  In this case,
+    /// the board is impossible to fill.
+    ///
+    /// Similarly to [`has_isolated_cell`], this method finds disconnected
+    /// sections by comparing two adjacent columns.  If, in two adjacent
+    /// columns, there is at least one cell in each row, then all empty cells
+    /// from the left column leftwards are permanently disconnected from all
+    /// empty cells from the right column rightwards.  It is never possible to
+    /// reach an empty cell in the right column from an empty cell in the left
+    /// column.
+    ///
+    /// This check saves an enormous amount of time by culling unusable boards
+    /// early.
+    ///
+    /// [`has_isolated_cell`]: Board::has_isolated_cell
+    pub fn has_imbalanced_split(self) -> bool {
+        const COL_0: u64 = 0b1_0000000001_0000000001_0000000001;
+        const COL_1: u64 = COL_0 << 1;
+        const COL_2: u64 = COL_0 << 2;
+        const COL_3: u64 = COL_0 << 3;
+        const COL_4: u64 = COL_0 << 4;
+        const COL_5: u64 = COL_0 << 5;
+        const COL_6: u64 = COL_0 << 6;
+        const COL_7: u64 = COL_0 << 7;
+
+        const LEFT_0: u64 = COL_0;
+        const LEFT_1: u64 = LEFT_0 | COL_1;
+        const LEFT_2: u64 = LEFT_1 | COL_2;
+        const LEFT_3: u64 = LEFT_2 | COL_3;
+        const LEFT_4: u64 = LEFT_3 | COL_4;
+        const LEFT_5: u64 = LEFT_4 | COL_5;
+        const LEFT_6: u64 = LEFT_5 | COL_6;
+        const LEFT_7: u64 = LEFT_6 | COL_7;
+
+        fn check_col(board: Board, col_mask: u64, left_mask: u64) -> bool {
+            // "Or" this column and the next column together.
+            // Is there a filled cell in each row?
+
+            if (board.0 | (board.0 >> 1)) & col_mask == col_mask {
+                // There is a left section of the board containing all cells to
+                // the left, as well as all cells *in this column*.
+                let left = board.0 & left_mask;
+
+                // This is a trick to skip a little logic.  In any combination
+                // of columns, the *total* number of cells is a multiple of 4.
+                // So the number of empty cells is a multiple of 4
+                // if and only if the number of filled cells is a multiple of 4.
+
+                // total ≡ empty + filled ≡ 0 (mod 4)
+                // empty ≡ -filled
+                // empty ≡ 0  ⟺  filled ≡ 0
+
+                if left.count_ones() % 4 != 0 {
+                    return true;
+                }
+            }
+
+            false
+        }
+
+        // If columns 1-7 are checked, also checking 0 and 8 is equivalent to
+        // also checking `has_isolated_cell`.
+
+        // `has_isolated_cell` is faster.
+
+        false
+            || check_col(self, COL_1, LEFT_1)
+            || check_col(self, COL_2, LEFT_2)
+            || check_col(self, COL_3, LEFT_3)
+            || check_col(self, COL_4, LEFT_4)
+            || check_col(self, COL_5, LEFT_5)
+            || check_col(self, COL_6, LEFT_6)
+            || check_col(self, COL_7, LEFT_7)
     }
 }
 

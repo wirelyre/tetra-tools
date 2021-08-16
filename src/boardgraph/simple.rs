@@ -108,6 +108,10 @@ impl SimpleStage {
         self.0.lock_all().par_iter().for_each(|(&board, _preds)| {
             Shape::ALL.par_iter().for_each(|&shape| {
                 for (_, new_board) in PiecePlacer::new(board, shape) {
+                    if new_board.has_isolated_cell() || new_board.has_imbalanced_split() {
+                        continue;
+                    }
+
                     let mut subset = new_stage.0.lock_subset(new_board);
                     let entry = subset.entry(new_board).or_insert_with(SmallVec::new);
 

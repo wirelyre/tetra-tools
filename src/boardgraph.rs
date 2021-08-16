@@ -121,9 +121,7 @@ impl Iterator for PiecePlacer {
                 }
             }
 
-            if piece.can_place(self.board)
-            /* && !piece.place(self.board).has_isolated_cell() */
-            {
+            if piece.can_place(self.board) {
                 return Some((piece, piece.place(self.board)));
             }
         }
