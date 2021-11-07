@@ -2,5 +2,6 @@
 
 members = [
     "basic",
+    "precompute",
     "solver",
 ]
