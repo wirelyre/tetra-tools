@@ -1,8 +1,10 @@
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
 
+use basic::gameplay::Shape;
+use basic::piece_placer::PiecePlacer;
+
 use super::Stage;
-use crate::{boardgraph::PiecePlacer, gameplay::Shape};
 
 pub struct GameStateStage(pub Stage<QuantumBag>);
 

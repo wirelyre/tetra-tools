@@ -4,10 +4,10 @@ use std::collections::{HashMap, HashSet};
 
 use smallvec::SmallVec;
 
-use crate::{
-    boardgraph::PiecePlacer,
+use basic::{
     brokenboard::BrokenBoard,
     gameplay::{Board, Shape},
+    piece_placer::PiecePlacer,
 };
 
 type ScanStage = HashMap<Board, SmallVec<[Board; 6]>>;

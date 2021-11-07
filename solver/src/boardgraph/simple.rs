@@ -7,12 +7,13 @@ use std::{
 use rayon::prelude::*;
 use smallvec::SmallVec;
 
-use super::Stage;
-use crate::{
-    boardgraph::PiecePlacer,
-    counter::Counter,
+use basic::{
     gameplay::{Board, Shape},
+    piece_placer::PiecePlacer,
 };
+
+use super::Stage;
+use crate::counter::Counter;
 
 pub struct SimpleGraph(pub Vec<SimpleStage>);
 

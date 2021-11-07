@@ -1,0 +1,18 @@
+[package]
+name = "perfect-clear"
+version = "0.1.0"
+authors = ["wirelyre"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+crossbeam = "0.8.1"
+crossterm = "0.20.0"
+leb128 = "0.2.4"
+num_cpus = "1.0"
+parking_lot = "0.11.1"
+rayon = "1.5.1"
+smallvec = { version = "1.6.1", features = ["union"] }
+
+basic = { path = "../basic" }
