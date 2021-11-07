@@ -1,21 +1,37 @@
-use std::fs::OpenOptions;
-use std::io::BufWriter;
+use std::collections::HashSet;
+use std::io::Cursor;
+
+use gameplay::Board;
+
+use crate::gameplay::Shape;
 
 pub mod boardgraph;
+pub mod brokenboard;
 pub mod counter;
 pub mod gameplay;
 
 fn main() -> std::io::Result<()> {
-    let boards = boardgraph::simple::compute();
+    let contents = include_bytes!("../simple-boards.leb128");
 
-    let file = OpenOptions::new()
-        .create_new(true)
-        .write(true)
-        .open("simple-boards.bin")?;
+    let legal_boards: HashSet<Board> = boardgraph::simple::read(Cursor::new(contents))?
+        .drain(..)
+        .collect();
 
-    let writer = BufWriter::new(file);
-
-    boardgraph::simple::write(&boards, writer)?;
+    boardgraph::broken::compute(
+        &legal_boards,
+        &[
+            Shape::T,
+            Shape::S,
+            Shape::Z,
+            Shape::L,
+            Shape::O,
+            Shape::J,
+            Shape::I,
+            Shape::T,
+            Shape::S,
+            Shape::O,
+        ],
+    );
 
     Ok(())
 }

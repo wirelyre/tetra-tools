@@ -538,7 +538,7 @@ impl Piece {
 ///
 /// [shape]:    Shape
 /// [rotation]: Rotation
-static PIECE_SHAPES: [[u64; 4]; 7] = [
+pub static PIECE_SHAPES: [[u64; 4]; 7] = [
     [
         // I
         0b1111,
@@ -716,5 +716,26 @@ impl Rotation {
             Rotation::Half => Rotation::Clockwise,
             Rotation::CounterClockwise => Rotation::Half,
         }
+    }
+
+    /// A canonical rotation for the given shape, with respect to symmetry.
+    pub fn canonical(self, shape: Shape) -> Rotation {
+        use Rotation::*;
+
+        const SYM_90: [Rotation; 4] = [None, None, None, None];
+        const SYM_180: [Rotation; 4] = [None, Clockwise, None, Clockwise];
+        const SYM_360: [Rotation; 4] = [None, Clockwise, Half, CounterClockwise];
+
+        static CANONICAL: [[Rotation; 4]; 7] = [
+            SYM_180, // I
+            SYM_360, // J
+            SYM_360, // L
+            SYM_90,  // O
+            SYM_180, // S
+            SYM_360, // T
+            SYM_180, // Z
+        ];
+
+        CANONICAL[shape as usize][self as usize]
     }
 }
