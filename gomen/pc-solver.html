@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style type="text/css">
         mino-board {
@@ -44,10 +45,12 @@
         }
 
         #solutions {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid: auto-flow / repeat(auto-fill, 200px);
+            gap: 10px;
             justify-content: space-evenly;
-            align-items: center;
+            place-items: center;
+
             padding: 10px;
         }
 
