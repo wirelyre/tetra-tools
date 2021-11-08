@@ -46,6 +46,36 @@ impl BrokenBoard {
         }
     }
 
+    pub fn from_garbage(garbage: u64) -> Self {
+        let mut new = BrokenBoard {
+            board: Board(0),
+            cleared_rows: 0,
+            pieces: SmallVec::new(),
+        };
+
+        let mut complete_lines = 0;
+        let mut complete_lines_shift = 0;
+
+        for row in (0..4).rev() {
+            let this_line = (garbage >> (row * 10)) & 0b1111111111;
+
+            if this_line == 0b1111111111 {
+                complete_lines <<= 10;
+                complete_lines |= 0b1111111111;
+                complete_lines_shift += 10;
+                new.cleared_rows |= 1 << row;
+            } else {
+                new.board.0 <<= 10;
+                new.board.0 |= this_line;
+            }
+        }
+
+        new.board.0 <<= complete_lines_shift;
+        new.board.0 |= complete_lines;
+
+        new
+    }
+
     pub fn place(&self, piece: Piece) -> Self {
         let mut new = BrokenBoard {
             board: piece.place(self.board),

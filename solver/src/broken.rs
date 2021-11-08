@@ -12,10 +12,10 @@ use basic::{
 
 type ScanStage = HashMap<Board, SmallVec<[Board; 6]>>;
 
-fn scan(legal_boards: &HashSet<Board>, shapes: &[Shape]) -> Vec<ScanStage> {
+fn scan(legal_boards: &HashSet<Board>, start: Board, shapes: &[Shape]) -> Vec<ScanStage> {
     let mut stages = Vec::new();
     let mut last: ScanStage = HashMap::new();
-    last.insert(Board::empty(), SmallVec::new());
+    last.insert(start, SmallVec::new());
 
     for &shape in shapes {
         let mut next: ScanStage = HashMap::new();
@@ -64,9 +64,9 @@ fn cull(scanned: &[ScanStage]) -> HashSet<Board> {
     culled
 }
 
-fn place(culled: &HashSet<Board>, shapes: &[Shape]) -> HashSet<BrokenBoard> {
+fn place(culled: &HashSet<Board>, start: BrokenBoard, shapes: &[Shape]) -> HashSet<BrokenBoard> {
     let mut last = HashSet::new();
-    last.insert(BrokenBoard::empty());
+    last.insert(start);
 
     for &shape in shapes {
         let mut next = HashSet::new();
@@ -85,10 +85,14 @@ fn place(culled: &HashSet<Board>, shapes: &[Shape]) -> HashSet<BrokenBoard> {
     last
 }
 
-pub fn compute(legal_boards: &HashSet<Board>, shapes: &[Shape]) -> Vec<BrokenBoard> {
-    let scanned = scan(legal_boards, shapes);
+pub fn compute(
+    legal_boards: &HashSet<Board>,
+    start: &BrokenBoard,
+    shapes: &[Shape],
+) -> Vec<BrokenBoard> {
+    let scanned = scan(legal_boards, start.board.clone(), shapes);
     let culled = cull(&scanned);
-    let mut placed = place(&culled, shapes);
+    let mut placed = place(&culled, start.clone(), shapes);
 
     let mut solutions: Vec<BrokenBoard> = placed.drain().collect();
     solutions.sort_unstable();
@@ -97,7 +101,7 @@ pub fn compute(legal_boards: &HashSet<Board>, shapes: &[Shape]) -> Vec<BrokenBoa
     solutions
 }
 
-pub fn print(board: &BrokenBoard, to: &mut String) {
+pub fn print(board: &BrokenBoard, garbage: Board, to: &mut String) {
     let pieces: Vec<(Shape, Board)> = board
         .pieces
         .iter()
@@ -106,12 +110,18 @@ pub fn print(board: &BrokenBoard, to: &mut String) {
 
     for row in (0..4).rev() {
         'cell: for col in 0..10 {
+            if garbage.get(row, col) {
+                to.push('G');
+                continue 'cell;
+            }
+
             for &(shape, board) in &pieces {
                 if board.get(row, col) {
                     to.push_str(shape.name());
                     continue 'cell;
                 }
             }
+
             to.push('_');
         }
     }

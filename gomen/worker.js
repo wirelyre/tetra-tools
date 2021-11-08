@@ -8,20 +8,23 @@ async function main() {
     postMessage("ready");
 
     onmessage = message => {
-        let pieces = message.data[0];
-        let count = message.data[1];
-
+        let [pieces, garbage, count] = message.data;
         let solns;
 
+        if (!solver.possible(garbage)) {
+            postMessage(["impossible", garbage]);
+            return;
+        }
+
         if (count == 0) {
-            solns = solver.solve(pieces).split(",");
+            solns = solver.solve(pieces, garbage).split(",");
         } else {
-            solns = solver.solve_some(pieces, count).split(",");
+            solns = solver.solve_some(pieces, garbage, count).split(",");
         }
 
         count = solns.shift();
 
-        postMessage([pieces, count, solns]);
+        postMessage([pieces, garbage, count, solns]);
     }
 }
 main();

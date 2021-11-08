@@ -3,6 +3,7 @@ use wasm_bindgen::prelude::wasm_bindgen;
 
 use basic::{
     board_list,
+    brokenboard::BrokenBoard,
     gameplay::{Board, Shape},
 };
 
@@ -27,16 +28,17 @@ impl Solver {
         Solver { boards }
     }
 
-    pub fn solve_some(&self, pieces: &str, count: usize) -> String {
+    pub fn solve_some(&self, pieces: &str, garbage: u64, count: usize) -> String {
         if let Some(shapes) = parse_shapes(pieces) {
-            let mut solutions = broken::compute(&self.boards, &shapes);
+            let start = BrokenBoard::from_garbage(garbage);
+            let mut solutions = broken::compute(&self.boards, &start, &shapes);
             let mut str = format!("{}", solutions.len());
 
             solutions.truncate(count);
 
             for board in &solutions {
                 str.push(',');
-                broken::print(&board, &mut str);
+                broken::print(&board, start.board, &mut str);
             }
 
             str
@@ -45,20 +47,26 @@ impl Solver {
         }
     }
 
-    pub fn solve(&self, pieces: &str) -> String {
+    pub fn solve(&self, pieces: &str, garbage: u64) -> String {
         if let Some(shapes) = parse_shapes(pieces) {
-            let solutions = broken::compute(&self.boards, &shapes);
+            let start = BrokenBoard::from_garbage(garbage);
+            let solutions = broken::compute(&self.boards, &start, &shapes);
             let mut str = format!("{}", solutions.len());
 
             for board in &solutions {
                 str.push(',');
-                broken::print(&board, &mut str);
+                broken::print(&board, start.board, &mut str);
             }
 
             str
         } else {
             String::new()
         }
+    }
+
+    pub fn possible(&self, garbage: u64) -> bool {
+        self.boards
+            .contains(&BrokenBoard::from_garbage(garbage).board)
     }
 }
 
