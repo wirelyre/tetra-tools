@@ -3,6 +3,7 @@
 
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
 
     <style type="text/css">
         mino-board {
@@ -44,15 +45,37 @@
         }
 
         #solutions {
-            display: flex;
-            flex-wrap: wrap;
+            display: grid;
+            grid: auto-flow / repeat(auto-fill, 200px);
+            gap: 10px;
             justify-content: space-evenly;
-            align-items: center;
+            place-items: center;
+
             padding: 10px;
         }
 
         #solutions>mino-board {
             padding: 10px;
+        }
+
+        #initial {
+            display: grid;
+            grid: auto-flow / repeat(10, 20px);
+            border-radius: 4px;
+            margin: 10px;
+        }
+
+        #initial>input {
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background-color: #F3F3ED;
+            padding: 0;
+            margin: 0;
+        }
+
+        #initial>input:checked {
+            background-color: #686868;
         }
     </style>
 
@@ -63,6 +86,30 @@
 <body>
 
     <h1>PC solver</h1>
+
+    <div>Initial field:</div>
+    <div id="initial">
+        <input type="checkbox" id="cell30"> <input type="checkbox" id="cell31">
+        <input type="checkbox" id="cell32"> <input type="checkbox" id="cell33">
+        <input type="checkbox" id="cell34"> <input type="checkbox" id="cell35">
+        <input type="checkbox" id="cell36"> <input type="checkbox" id="cell37">
+        <input type="checkbox" id="cell38"> <input type="checkbox" id="cell39">
+        <input type="checkbox" id="cell20"> <input type="checkbox" id="cell21">
+        <input type="checkbox" id="cell22"> <input type="checkbox" id="cell23">
+        <input type="checkbox" id="cell24"> <input type="checkbox" id="cell25">
+        <input type="checkbox" id="cell26"> <input type="checkbox" id="cell27">
+        <input type="checkbox" id="cell28"> <input type="checkbox" id="cell29">
+        <input type="checkbox" id="cell10"> <input type="checkbox" id="cell11">
+        <input type="checkbox" id="cell12"> <input type="checkbox" id="cell13">
+        <input type="checkbox" id="cell14"> <input type="checkbox" id="cell15">
+        <input type="checkbox" id="cell16"> <input type="checkbox" id="cell17">
+        <input type="checkbox" id="cell18"> <input type="checkbox" id="cell19">
+        <input type="checkbox" id="cell0"> <input type="checkbox" id="cell1">
+        <input type="checkbox" id="cell2"> <input type="checkbox" id="cell3">
+        <input type="checkbox" id="cell4"> <input type="checkbox" id="cell5">
+        <input type="checkbox" id="cell6"> <input type="checkbox" id="cell7">
+        <input type="checkbox" id="cell8"> <input type="checkbox" id="cell9">
+    </div>
 
     <input type="text" id="pieces" placeholder="piece sequence" pattern="[IJLOSTZ]{0,10}">
     <span>Enter up to 10 piece shapes: I, J, L, O, S, T, Z.</span>
@@ -82,14 +129,21 @@
                 document.getElementById("loading").remove();
 
                 if (input.validity.valid) {
-                    doSolve(input.value, 10);
+                    doSolve(input.value, getGarbage(), 10);
                 }
                 return;
             }
 
-            let [pieces, count, solutions] = message.data;
+            if (message.data[0] == "impossible" && message.data[1] == getGarbage()) {
+                work = null;
+                output.innerText = "inital field has no solutions or is unreachable";
+                output.classList.remove("loading");
+                return;
+            }
 
-            if (pieces == work[0]) {
+            let [pieces, garbage, count, solutions] = message.data;
+
+            if (pieces == work[0] && garbage == work[1]) {
                 work = null;
 
                 output.innerHTML = "";
@@ -107,7 +161,7 @@
                 if (count > solutions.length) {
                     let button = document.createElement("button");
                     button.innerText = "And " + (count - solutions.length) + " more...";
-                    button.onclick = () => doSolve(pieces, 0);
+                    button.onclick = () => doSolve(pieces, garbage, 0);
                     output.appendChild(button);
                 }
             } else {
@@ -115,14 +169,26 @@
             }
         };
 
-        function doSolve(pieces, count) {
+        function doSolve(pieces, garbage, count) {
             if (work == null) {
                 output.classList.add("loading");
-                work = [pieces, count];
+                work = [pieces, garbage, count];
                 worker.postMessage(work);
             } else {
-                work = [pieces, count];
+                work = [pieces, garbage, count];
             }
+        }
+
+        function getGarbage() {
+            let garbage = 0n;
+
+            for (let i = 0n; i < 40n; i++) {
+                if (document.getElementById("cell" + i).checked) {
+                    garbage |= 1n << i;
+                }
+            }
+
+            return garbage;
         }
 
         input.addEventListener("input", (ev) => {
@@ -134,9 +200,15 @@
             }
 
             if (input.validity.valid) {
-                doSolve(input.value, 10);
+                doSolve(input.value, getGarbage(), 10);
             }
         });
+
+        for (let i = 0; i < 40; i++) {
+            document.getElementById("cell" + i).addEventListener("input",
+                (ev) => doSolve(input.value, getGarbage(), 10)
+            );
+        }
 
     </script>
 

@@ -74,6 +74,10 @@ let wasm_bindgen;
         return ptr;
     }
 
+    const u32CvtShim = new Uint32Array(2);
+
+    const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
+
     let cachegetInt32Memory0 = null;
     function getInt32Memory0() {
         if (cachegetInt32Memory0 === null || cachegetInt32Memory0.buffer !== wasm.memory.buffer) {
@@ -111,15 +115,19 @@ let wasm_bindgen;
         }
         /**
         * @param {string} pieces
+        * @param {BigInt} garbage
         * @param {number} count
         * @returns {string}
         */
-        solve_some(pieces, count) {
+        solve_some(pieces, garbage, count) {
             try {
                 const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
                 var ptr0 = passStringToWasm0(pieces, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
                 var len0 = WASM_VECTOR_LEN;
-                wasm.solver_solve_some(retptr, this.ptr, ptr0, len0, count);
+                uint64CvtShim[0] = garbage;
+                const low1 = u32CvtShim[0];
+                const high1 = u32CvtShim[1];
+                wasm.solver_solve_some(retptr, this.ptr, ptr0, len0, low1, high1, count);
                 var r0 = getInt32Memory0()[retptr / 4 + 0];
                 var r1 = getInt32Memory0()[retptr / 4 + 1];
                 return getStringFromWasm0(r0, r1);
@@ -130,14 +138,18 @@ let wasm_bindgen;
         }
         /**
         * @param {string} pieces
+        * @param {BigInt} garbage
         * @returns {string}
         */
-        solve(pieces) {
+        solve(pieces, garbage) {
             try {
                 const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
                 var ptr0 = passStringToWasm0(pieces, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
                 var len0 = WASM_VECTOR_LEN;
-                wasm.solver_solve(retptr, this.ptr, ptr0, len0);
+                uint64CvtShim[0] = garbage;
+                const low1 = u32CvtShim[0];
+                const high1 = u32CvtShim[1];
+                wasm.solver_solve(retptr, this.ptr, ptr0, len0, low1, high1);
                 var r0 = getInt32Memory0()[retptr / 4 + 0];
                 var r1 = getInt32Memory0()[retptr / 4 + 1];
                 return getStringFromWasm0(r0, r1);
@@ -145,6 +157,17 @@ let wasm_bindgen;
                 wasm.__wbindgen_add_to_stack_pointer(16);
                 wasm.__wbindgen_free(r0, r1);
             }
+        }
+        /**
+        * @param {BigInt} garbage
+        * @returns {boolean}
+        */
+        possible(garbage) {
+            uint64CvtShim[0] = garbage;
+            const low0 = u32CvtShim[0];
+            const high0 = u32CvtShim[1];
+            var ret = wasm.solver_possible(this.ptr, low0, high0);
+            return ret !== 0;
         }
     }
     __exports.Solver = Solver;
