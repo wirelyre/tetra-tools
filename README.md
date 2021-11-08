@@ -1,9 +1,20 @@
-# perfect-clear
+# Tetra tools
 
-A tool for researching 5- and 10-piece perfect clears in tetromino stackers.
+Tools and code libraries for tetromino stackers.
 
-When you run the program, it will do a large precomputation of all possible
-boards which result in 10-piece perfect clears.  These will be saved to a file.
+## Tools
+- `gomen`: very basic web interface for perfect clear solutions
+- `precompute`: compute all possible 10-piece perfect clears
 
-Currently there is no interface at all, but the `gameplay` module implements
-SRS with no library dependencies, which might be useful.
+## Libraries
+
+- `basic`: 4-line bitboards, implementing SRS
+- `solver`: perfect clears using precomputed boards
+
+#### Why "gomen"?
+
+- fumen = 譜面 = ふめん = 2めん
+- 2めん + 3 = 5めん
+- 5めん = ごめん = gomen
+
+Sorry.  It's a terrible pun.  Hopefully I come up with another name.
