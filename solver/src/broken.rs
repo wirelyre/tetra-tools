@@ -85,21 +85,19 @@ fn place(culled: &HashSet<Board>, shapes: &[Shape]) -> HashSet<BrokenBoard> {
     last
 }
 
-pub fn compute(legal_boards: &HashSet<Board>, shapes: &[Shape]) {
+pub fn compute(legal_boards: &HashSet<Board>, shapes: &[Shape]) -> Vec<BrokenBoard> {
     let scanned = scan(legal_boards, shapes);
     let culled = cull(&scanned);
     let mut placed = place(&culled, shapes);
 
     let mut solutions: Vec<BrokenBoard> = placed.drain().collect();
     solutions.sort_unstable();
+    solutions.reverse();
 
-    for solution in &solutions {
-        println!();
-        print(solution);
-    }
+    solutions
 }
 
-pub fn print(board: &BrokenBoard) {
+pub fn print(board: &BrokenBoard, to: &mut String) {
     let pieces: Vec<(Shape, Board)> = board
         .pieces
         .iter()
@@ -110,12 +108,11 @@ pub fn print(board: &BrokenBoard) {
         'cell: for col in 0..10 {
             for &(shape, board) in &pieces {
                 if board.get(row, col) {
-                    print!("{}", shape.name());
+                    to.push_str(shape.name());
                     continue 'cell;
                 }
             }
-            print!("_");
+            to.push('_');
         }
-        println!();
     }
 }
