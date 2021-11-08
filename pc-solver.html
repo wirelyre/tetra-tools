@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+
+    <style type="text/css">
+        mino-board {
+            display: block;
+
+            width: 200px;
+            white-space: pre-line;
+            font-family: monospace;
+        }
+
+        mino-board>svg {
+            border-radius: 4px;
+        }
+
+        #pieces+span {
+            display: none;
+        }
+
+        #pieces:invalid {
+            border-color: red;
+        }
+
+        #pieces:invalid+span {
+            display: block;
+        }
+
+        @keyframes loading {
+            from {
+                filter: none;
+            }
+
+            to {
+                filter: grayscale(100%) blur(2px);
+            }
+        }
+
+        .loading {
+            animation: loading .2s forwards;
+        }
+
+        #solutions {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-evenly;
+            align-items: center;
+            padding: 10px;
+        }
+
+        #solutions>mino-board {
+            padding: 10px;
+        }
+    </style>
+
+    <script src="./mino-board.js"></script>
+
+</head>
+
+<body>
+
+    <h1>PC solver</h1>
+
+    <input type="text" id="pieces" placeholder="piece sequence" pattern="[IJLOSTZ]{0,10}">
+    <span>Enter up to 10 piece shapes: I, J, L, O, S, T, Z.</span>
+    <div id="loading">Loading solver...</div>
+
+    <div id="solutions"></div>
+
+    <script type="module">
+        let input = document.getElementById("pieces");
+        let output = document.getElementById("solutions");
+
+        let worker = new Worker("worker.js");
+        let work = null;
+
+        worker.onmessage = message => {
+            if (message.data == "ready") {
+                document.getElementById("loading").remove();
+
+                if (input.validity.valid) {
+                    doSolve(input.value, 10);
+                }
+                return;
+            }
+
+            let [pieces, count, solutions] = message.data;
+
+            if (pieces == work[0]) {
+                work = null;
+
+                output.innerHTML = "";
+                output.classList.remove("loading");
+
+                if (count == 0) {
+                    output.innerText = "no solutions";
+                }
+
+                for (const soln of solutions) {
+                    const board = new MinoBoard(soln);
+                    output.appendChild(board);
+                }
+
+                if (count > solutions.length) {
+                    let button = document.createElement("button");
+                    button.innerText = "And " + (count - solutions.length) + " more...";
+                    button.onclick = () => doSolve(pieces, 0);
+                    output.appendChild(button);
+                }
+            } else {
+                worker.postMessage(work);
+            }
+        };
+
+        function doSolve(pieces, count) {
+            if (work == null) {
+                output.classList.add("loading");
+                work = [pieces, count];
+                worker.postMessage(work);
+            } else {
+                work = [pieces, count];
+            }
+        }
+
+        input.addEventListener("input", (ev) => {
+            for (let i = 0; i < input.value.length; i++) {
+                let val = input.value[i];
+                if (val.toUpperCase() != val) {
+                    input.setRangeText(input.value[i].toUpperCase(), i, i + 1, "end");
+                }
+            }
+
+            if (input.validity.valid) {
+                doSolve(input.value, 10);
+            }
+        });
+
+    </script>
+
+</body>
+
+</html>
