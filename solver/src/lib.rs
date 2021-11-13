@@ -1,3 +1,4 @@
+use queue::Bag;
 use std::{collections::HashSet, io::Cursor};
 use wasm_bindgen::prelude::wasm_bindgen;
 
@@ -7,7 +8,8 @@ use basic::{
     gameplay::{Board, Shape},
 };
 
-pub mod broken;
+pub mod queue;
+pub mod solver;
 
 #[wasm_bindgen]
 pub struct Solver {
@@ -28,40 +30,32 @@ impl Solver {
         Solver { boards }
     }
 
-    pub fn solve_some(&self, pieces: &str, garbage: u64, count: usize) -> String {
-        if let Some(shapes) = parse_shapes(pieces) {
-            let start = BrokenBoard::from_garbage(garbage);
-            let mut solutions = broken::compute(&self.boards, &start, &shapes);
-            let mut str = format!("{}", solutions.len());
+    pub fn solve_some(&self, queue: Queue, garbage: u64, hold: bool, count: usize) -> String {
+        let start = BrokenBoard::from_garbage(garbage);
+        let mut solutions = solver::compute(&self.boards, &start, &queue.bags, hold);
+        let mut str = format!("{}", solutions.len());
 
-            solutions.truncate(count);
+        solutions.truncate(count);
 
-            for board in &solutions {
-                str.push(',');
-                broken::print(&board, start.board, &mut str);
-            }
-
-            str
-        } else {
-            String::new()
+        for board in &solutions {
+            str.push(',');
+            solver::print(&board, start.board, &mut str);
         }
+
+        str
     }
 
-    pub fn solve(&self, pieces: &str, garbage: u64) -> String {
-        if let Some(shapes) = parse_shapes(pieces) {
-            let start = BrokenBoard::from_garbage(garbage);
-            let solutions = broken::compute(&self.boards, &start, &shapes);
-            let mut str = format!("{}", solutions.len());
+    pub fn solve(&self, queue: Queue, garbage: u64, can_hold: bool) -> String {
+        let start = BrokenBoard::from_garbage(garbage);
+        let solutions = solver::compute(&self.boards, &start, &queue.bags, can_hold);
+        let mut str = format!("{}", solutions.len());
 
-            for board in &solutions {
-                str.push(',');
-                broken::print(&board, start.board, &mut str);
-            }
-
-            str
-        } else {
-            String::new()
+        for board in &solutions {
+            str.push(',');
+            solver::print(&board, start.board, &mut str);
         }
+
+        str
     }
 
     pub fn possible(&self, garbage: u64) -> bool {
@@ -70,27 +64,41 @@ impl Solver {
     }
 }
 
-fn parse_shapes(shapes: &str) -> Option<Vec<Shape>> {
-    let mut vec = Vec::new();
+#[wasm_bindgen]
+pub struct Queue {
+    bags: Vec<Bag>,
+}
 
-    for shape in shapes.chars() {
-        let shape = match shape {
-            'I' => Shape::I,
-            'J' => Shape::J,
-            'L' => Shape::L,
-            'O' => Shape::O,
-            'S' => Shape::S,
-            'T' => Shape::T,
-            'Z' => Shape::Z,
-            _ => return None,
-        };
-
-        vec.push(shape);
+#[wasm_bindgen]
+impl Queue {
+    #[wasm_bindgen(constructor)]
+    pub fn new() -> Queue {
+        Queue { bags: Vec::new() }
     }
 
-    if vec.len() > 10 {
-        return None;
+    pub fn add_shape(&mut self, shape: char) {
+        self.add_bag(&shape.to_string(), 1);
     }
 
-    Some(vec)
+    pub fn add_bag(&mut self, shapes: &str, count: u8) {
+        let shapes = shapes
+            .chars()
+            .map(parse_shape)
+            .collect::<Option<Vec<Shape>>>()
+            .unwrap();
+        self.bags.push(Bag::new(&shapes, count));
+    }
+}
+
+fn parse_shape(shape: char) -> Option<Shape> {
+    match shape {
+        'I' => Some(Shape::I),
+        'J' => Some(Shape::J),
+        'L' => Some(Shape::L),
+        'O' => Some(Shape::O),
+        'S' => Some(Shape::S),
+        'T' => Some(Shape::T),
+        'Z' => Some(Shape::Z),
+        _ => None,
+    }
 }

@@ -18,18 +18,6 @@
             border-radius: 4px;
         }
 
-        #pieces+span {
-            display: none;
-        }
-
-        #pieces:invalid {
-            border-color: red;
-        }
-
-        #pieces:invalid+span {
-            display: block;
-        }
-
         @keyframes loading {
             from {
                 filter: none;
@@ -58,11 +46,60 @@
             padding: 10px;
         }
 
+        #query {
+            margin: 10px;
+            padding: 10px;
+            width: max-content;
+
+            border: 1px solid black;
+            border-radius: 5px;
+
+            display: grid;
+            grid-template-columns: 10rem 200px;
+            align-items: start;
+            gap: 20px 10px;
+        }
+
+        #query h1 {
+            grid-column: span 2;
+            margin: 0;
+        }
+
+        #query div.label {
+            font-family: sans-serif;
+            font-weight: bold;
+        }
+
+        #query details {
+            margin-left: .5rem;
+            color: gray;
+        }
+
+        #query details[open] {
+            color: black;
+        }
+
+        #query details summary {
+            cursor: pointer;
+        }
+
+        #query details pre {
+            margin: .2rem 1rem;
+        }
+
+        .errors {
+            margin: .2rem;
+            color: red;
+        }
+
+        label {
+            cursor: pointer;
+        }
+
         #initial {
             display: grid;
             grid: auto-flow / repeat(10, 20px);
             border-radius: 4px;
-            margin: 10px;
         }
 
         #initial>input {
@@ -85,130 +122,209 @@
 
 <body>
 
-    <h1>PC solver</h1>
+    <div id="query">
 
-    <div>Initial field:</div>
-    <div id="initial">
-        <input type="checkbox" id="cell30"> <input type="checkbox" id="cell31">
-        <input type="checkbox" id="cell32"> <input type="checkbox" id="cell33">
-        <input type="checkbox" id="cell34"> <input type="checkbox" id="cell35">
-        <input type="checkbox" id="cell36"> <input type="checkbox" id="cell37">
-        <input type="checkbox" id="cell38"> <input type="checkbox" id="cell39">
-        <input type="checkbox" id="cell20"> <input type="checkbox" id="cell21">
-        <input type="checkbox" id="cell22"> <input type="checkbox" id="cell23">
-        <input type="checkbox" id="cell24"> <input type="checkbox" id="cell25">
-        <input type="checkbox" id="cell26"> <input type="checkbox" id="cell27">
-        <input type="checkbox" id="cell28"> <input type="checkbox" id="cell29">
-        <input type="checkbox" id="cell10"> <input type="checkbox" id="cell11">
-        <input type="checkbox" id="cell12"> <input type="checkbox" id="cell13">
-        <input type="checkbox" id="cell14"> <input type="checkbox" id="cell15">
-        <input type="checkbox" id="cell16"> <input type="checkbox" id="cell17">
-        <input type="checkbox" id="cell18"> <input type="checkbox" id="cell19">
-        <input type="checkbox" id="cell0"> <input type="checkbox" id="cell1">
-        <input type="checkbox" id="cell2"> <input type="checkbox" id="cell3">
-        <input type="checkbox" id="cell4"> <input type="checkbox" id="cell5">
-        <input type="checkbox" id="cell6"> <input type="checkbox" id="cell7">
-        <input type="checkbox" id="cell8"> <input type="checkbox" id="cell9">
+        <h1>PC solver</h1>
+
+        <div class="label">Initial field</div>
+        <div>
+            <div id="initial">
+                <input type="checkbox" id="cell30"> <input type="checkbox" id="cell31">
+                <input type="checkbox" id="cell32"> <input type="checkbox" id="cell33">
+                <input type="checkbox" id="cell34"> <input type="checkbox" id="cell35">
+                <input type="checkbox" id="cell36"> <input type="checkbox" id="cell37">
+                <input type="checkbox" id="cell38"> <input type="checkbox" id="cell39">
+                <input type="checkbox" id="cell20"> <input type="checkbox" id="cell21">
+                <input type="checkbox" id="cell22"> <input type="checkbox" id="cell23">
+                <input type="checkbox" id="cell24"> <input type="checkbox" id="cell25">
+                <input type="checkbox" id="cell26"> <input type="checkbox" id="cell27">
+                <input type="checkbox" id="cell28"> <input type="checkbox" id="cell29">
+                <input type="checkbox" id="cell10"> <input type="checkbox" id="cell11">
+                <input type="checkbox" id="cell12"> <input type="checkbox" id="cell13">
+                <input type="checkbox" id="cell14"> <input type="checkbox" id="cell15">
+                <input type="checkbox" id="cell16"> <input type="checkbox" id="cell17">
+                <input type="checkbox" id="cell18"> <input type="checkbox" id="cell19">
+                <input type="checkbox" id="cell0"> <input type="checkbox" id="cell1">
+                <input type="checkbox" id="cell2"> <input type="checkbox" id="cell3">
+                <input type="checkbox" id="cell4"> <input type="checkbox" id="cell5">
+                <input type="checkbox" id="cell6"> <input type="checkbox" id="cell7">
+                <input type="checkbox" id="cell8"> <input type="checkbox" id="cell9">
+            </div>
+            <div id="initial-errors" class="errors"></div>
+        </div>
+
+        <div>
+            <div class="label">Queue</div>
+            <details>
+                <summary>Examples</summary>
+                <pre>IJLOSTZ</pre>
+                <pre>L[TS]I</pre>
+                <pre>L[TS]2I</pre>
+                <pre>*5</pre>
+            </details>
+        </div>
+        <div style="display: grid">
+            <input type="text" id="queue">
+            <div id="queue-errors" class="errors"></div>
+        </div>
+
+        <div class="label">Options</div>
+        <div>
+            <label><input id="hold" type="checkbox"> Use hold</label>
+        </div>
+
     </div>
 
-    <input type="text" id="pieces" placeholder="piece sequence" pattern="[IJLOSTZ]{0,10}">
-    <span>Enter up to 10 piece shapes: I, J, L, O, S, T, Z.</span>
     <div id="loading">Loading solver...</div>
 
     <div id="solutions"></div>
 
     <script type="module">
-        let input = document.getElementById("pieces");
-        let output = document.getElementById("solutions");
-
         let worker = new Worker("worker.js");
         let work = null;
 
+        let initialErrors = document.getElementById("initial-errors");
+        let queue = document.getElementById("queue");
+        let queueErrors = document.getElementById("queue-errors");
+        let hold = document.getElementById("hold");
+        let solutions = document.getElementById("solutions");
+
         worker.onmessage = message => {
-            if (message.data == "ready") {
+            if (message.data.kind == "ready") {
                 document.getElementById("loading").remove();
 
-                if (input.validity.valid) {
-                    doSolve(input.value, getGarbage(), 10);
+                if (work != null) {
+                    worker.postMessage(work);
                 }
+
                 return;
             }
 
-            if (message.data[0] == "impossible" && message.data[1] == getGarbage()) {
+            if (message.data.kind == "impossible" && message.data.query.garbage == getGarbage()[0]) {
                 work = null;
-                output.innerText = "inital field has no solutions or is unreachable";
-                output.classList.remove("loading");
+                initialErrors.innerText = "inital field has no solutions or is unreachable";
+                solutions.innerHTML = "";
+                solutions.classList.remove("loading");
                 return;
+            } else {
+                initialErrors.innerText = "";
             }
 
-            let [pieces, garbage, count, solutions] = message.data;
-
-            if (pieces == work[0] && garbage == work[1]) {
+            if (message.data.query.queue != work.queue
+                || message.data.query.garbage != work.garbage
+                || message.data.query.hold != work.hold
+                || message.data.query.count != work.count) {
+                worker.postMessage(work);
+                return;
+            } else {
                 work = null;
-
-                output.innerHTML = "";
-                output.classList.remove("loading");
-
-                if (count == 0) {
-                    output.innerText = "no solutions";
-                }
-
-                for (const soln of solutions) {
-                    const board = new MinoBoard(soln);
-                    output.appendChild(board);
-                }
-
-                if (count > solutions.length) {
-                    let button = document.createElement("button");
-                    button.innerText = "And " + (count - solutions.length) + " more...";
-                    button.onclick = () => doSolve(pieces, garbage, 0);
-                    output.appendChild(button);
-                }
-            } else {
-                worker.postMessage(work);
+                solutions.innerHTML = "";
+                solutions.classList.remove("loading");
             }
-        };
 
-        function doSolve(pieces, garbage, count) {
-            if (work == null) {
-                output.classList.add("loading");
-                work = [pieces, garbage, count];
-                worker.postMessage(work);
-            } else {
-                work = [pieces, garbage, count];
+            if (message.data.count == 0) {
+                solutions.innerText = "no solutions";
+            }
+
+            for (const soln of message.data.solutions) {
+                const board = new MinoBoard(soln);
+                solutions.appendChild(board);
+            }
+
+            if (message.data.count > message.data.solutions.length) {
+                let button = document.createElement("button");
+                button.innerText = "And " +
+                    (message.data.count - message.data.solutions.length) + " more...";
+                button.onclick = () => doSolve(0);
+                solutions.appendChild(button);
             }
         }
 
         function getGarbage() {
             let garbage = 0n;
+            let garbageCount = 0;
 
             for (let i = 0n; i < 40n; i++) {
                 if (document.getElementById("cell" + i).checked) {
                     garbage |= 1n << i;
+                    garbageCount += 1;
                 }
             }
 
-            return garbage;
+            return [garbage, garbageCount];
         }
 
-        input.addEventListener("input", (ev) => {
-            for (let i = 0; i < input.value.length; i++) {
-                let val = input.value[i];
-                if (val.toUpperCase() != val) {
-                    input.setRangeText(input.value[i].toUpperCase(), i, i + 1, "end");
+        function doSolve(count) {
+            let whole = /^([ILJOSTZ]|(\[[ILJOSTZ]+\]|\*)\d*)*$/;
+            if (!whole.test(queue.value)) {
+                queueErrors.innerText = "bad queue (see examples)";
+                return;
+            }
+
+            let bag = /[ILJOSTZ]|\[([ILJOSTZ]+)\](\d*)|(\*)(\d*)/g;
+            let pieceCount = 0;
+
+            for (let match of queue.value.matchAll(bag)) {
+                if (match[1]) {
+                    let bagSize = match[1].length;
+                    let bagCount = parseInt(match[2], 10) || 1;
+                    pieceCount += bagCount;
+
+                    if (bagCount > bagSize) {
+                        queueErrors.innerText = `bag [${match[1]}] has only ${bagSize} shapes`;
+                        return;
+                    }
+                }
+
+                if (match[3]) {
+                    let bagSize = 7;
+                    let bagCount = parseInt(match[4], 10) || 1;
+                    pieceCount += bagCount;
+
+                    if (bagCount > bagSize) {
+                        queueErrors.innerText = `bag * has only ${bagSize} shapes`;
+                        return;
+                    }
                 }
             }
 
-            if (input.validity.valid) {
-                doSolve(input.value, getGarbage(), 10);
+            let [garbage, garbageCount] = getGarbage();
+
+            if (garbageCount + pieceCount * 4 > 44) {
+                queueErrors.innerText = `too many pieces in queue (${pieceCount} total)`;
+                return;
             }
+
+            queueErrors.innerText = "";
+
+            if (work == null) {
+                solutions.classList.add("loading");
+                work = { queue: queue.value, garbage, hold: hold.checked, count };
+                worker.postMessage(work);
+            } else {
+                work = { queue: queue.value, garbage, hold: hold.checked, count };
+            }
+        }
+
+        queue.addEventListener("input", (ev) => {
+            for (let i = 0; i < queue.value.length; i++) {
+                let val = queue.value[i];
+                if (val.toUpperCase() != val) {
+                    queue.setRangeText(queue.value[i].toUpperCase(), i, i + 1, "end");
+                }
+            }
+
+            doSolve(10);
         });
 
+        hold.addEventListener("input", (ev) => doSolve(10));
+
         for (let i = 0; i < 40; i++) {
-            document.getElementById("cell" + i).addEventListener("input",
-                (ev) => doSolve(input.value, getGarbage(), 10)
-            );
+            document.getElementById("cell" + i)
+                .addEventListener("input", (ev) => doSolve(10));
         }
+
+        doSolve(10);
 
     </script>
 
