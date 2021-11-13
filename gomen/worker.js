@@ -9,11 +9,12 @@ async function main() {
 
     onmessage = message => {
         let query = message.data;
-        let solutions;
 
         if (!solver.possible(query.garbage)) {
             postMessage({ kind: "impossible", query });
             return;
+        } else {
+            postMessage({ kind: "possible", query });
         }
 
         let queue = new wasm_bindgen.Queue();
@@ -31,15 +32,9 @@ async function main() {
             }
         }
 
-        if (query.count == 0) {
-            solutions = solver.solve(queue, query.garbage, query.hold).split(",");
-        } else {
-            solutions = solver.solve_some(queue, query.garbage, query.hold, query.count).split(",");
-        }
+        let solutions = solver.solve(queue, query.garbage, query.hold).split(",");
 
-        count = solutions.shift();
-
-        postMessage({ kind: "ok", query, solutions, count });
+        postMessage({ kind: "ok", query, solutions });
     }
 }
 main();

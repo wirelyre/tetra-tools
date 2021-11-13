@@ -30,31 +30,17 @@ impl Solver {
         Solver { boards }
     }
 
-    pub fn solve_some(&self, queue: Queue, garbage: u64, hold: bool, count: usize) -> String {
-        let start = BrokenBoard::from_garbage(garbage);
-        let mut solutions = solver::compute(&self.boards, &start, &queue.bags, hold);
-        let mut str = format!("{}", solutions.len());
-
-        solutions.truncate(count);
-
-        for board in &solutions {
-            str.push(',');
-            solver::print(&board, start.board, &mut str);
-        }
-
-        str
-    }
-
     pub fn solve(&self, queue: Queue, garbage: u64, can_hold: bool) -> String {
         let start = BrokenBoard::from_garbage(garbage);
         let solutions = solver::compute(&self.boards, &start, &queue.bags, can_hold);
-        let mut str = format!("{}", solutions.len());
+        let mut str = String::new();
 
         for board in &solutions {
-            str.push(',');
             solver::print(&board, start.board, &mut str);
+            str.push(',');
         }
 
+        str.pop();
         str
     }
 

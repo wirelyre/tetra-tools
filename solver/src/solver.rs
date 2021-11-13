@@ -197,7 +197,6 @@ pub fn compute(
     let mut solutions: Vec<BrokenBoard> =
         placed.drain().map(|(board, _queue_states)| board).collect();
     solutions.sort_unstable();
-    solutions.reverse();
 
     solutions
 }

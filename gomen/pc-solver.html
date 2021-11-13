@@ -170,7 +170,7 @@
 
         <div class="label">Options</div>
         <div>
-            <label><input id="hold" type="checkbox"> Use hold</label>
+            <label><input id="hold" type="checkbox" checked> Use hold</label>
         </div>
 
     </div>
@@ -206,8 +206,9 @@
                 solutions.innerHTML = "";
                 solutions.classList.remove("loading");
                 return;
-            } else {
+            } else if (message.data.kind == "possible" && message.data.query.garbage == getGarbage()[0]) {
                 initialErrors.innerText = "";
+                return;
             }
 
             if (message.data.query.queue != work.queue
@@ -222,21 +223,29 @@
                 solutions.classList.remove("loading");
             }
 
-            if (message.data.count == 0) {
-                solutions.innerText = "no solutions";
-            }
+            showSolutions(message.data.solutions, 50);
+            let count = message.data.solutions.length;
 
-            for (const soln of message.data.solutions) {
-                const board = new MinoBoard(soln);
-                solutions.appendChild(board);
-            }
-
-            if (message.data.count > message.data.solutions.length) {
+            if (count > 50) {
                 let button = document.createElement("button");
-                button.innerText = "And " +
-                    (message.data.count - message.data.solutions.length) + " more...";
-                button.onclick = () => doSolve(0);
+                button.innerText = `And ${count - 50} more...`;
+                button.onclick = () => showSolutions(message.data.solutions, count);
                 solutions.appendChild(button);
+            }
+        }
+
+        function showSolutions(solns, count) {
+            if (solns.length == 0) {
+                solutions.innerText = "no solutions";
+            } else {
+                solutions.innerHTML = "";
+            }
+
+            for (const soln of solns) {
+                if (count == 0) { break; }
+                count--;
+
+                solutions.appendChild(new MinoBoard(soln));
             }
         }
 
@@ -254,7 +263,7 @@
             return [garbage, garbageCount];
         }
 
-        function doSolve(count) {
+        function doSolve() {
             let whole = /^([ILJOSTZ]|(\[[ILJOSTZ]+\]|\*)\d*)*$/;
             if (!whole.test(queue.value)) {
                 queueErrors.innerText = "bad queue (see examples)";
@@ -299,10 +308,10 @@
 
             if (work == null) {
                 solutions.classList.add("loading");
-                work = { queue: queue.value, garbage, hold: hold.checked, count };
+                work = { queue: queue.value, garbage, hold: hold.checked };
                 worker.postMessage(work);
             } else {
-                work = { queue: queue.value, garbage, hold: hold.checked, count };
+                work = { queue: queue.value, garbage, hold: hold.checked };
             }
         }
 
@@ -314,17 +323,17 @@
                 }
             }
 
-            doSolve(10);
+            doSolve();
         });
 
-        hold.addEventListener("input", (ev) => doSolve(10));
+        hold.addEventListener("input", (ev) => doSolve());
 
         for (let i = 0; i < 40; i++) {
             document.getElementById("cell" + i)
-                .addEventListener("input", (ev) => doSolve(10));
+                .addEventListener("input", (ev) => doSolve());
         }
 
-        doSolve(10);
+        doSolve();
 
     </script>
 
