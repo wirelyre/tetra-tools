@@ -36,7 +36,7 @@ impl Solver {
         let mut str = String::new();
 
         for board in &solutions {
-            solver::print(&board, start.board, &mut str);
+            solver::print(&board, Board(garbage), &mut str);
             str.push(',');
         }
 
