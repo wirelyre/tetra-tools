@@ -19,6 +19,25 @@ let wasm_bindgen;
         return cachedTextDecoder.decode(getUint8Memory0().subarray(ptr, ptr + len));
     }
 
+    function _assertClass(instance, klass) {
+        if (!(instance instanceof klass)) {
+            throw new Error(`expected instance of ${klass.name}`);
+        }
+        return instance.ptr;
+    }
+
+    const u32CvtShim = new Uint32Array(2);
+
+    const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
+
+    let cachegetInt32Memory0 = null;
+    function getInt32Memory0() {
+        if (cachegetInt32Memory0 === null || cachegetInt32Memory0.buffer !== wasm.memory.buffer) {
+            cachegetInt32Memory0 = new Int32Array(wasm.memory.buffer);
+        }
+        return cachegetInt32Memory0;
+    }
+
     let WASM_VECTOR_LEN = 0;
 
     let cachedTextEncoder = new TextEncoder('utf-8');
@@ -73,18 +92,51 @@ let wasm_bindgen;
         WASM_VECTOR_LEN = offset;
         return ptr;
     }
+    /**
+    */
+    class Queue {
 
-    const u32CvtShim = new Uint32Array(2);
+        static __wrap(ptr) {
+            const obj = Object.create(Queue.prototype);
+            obj.ptr = ptr;
 
-    const uint64CvtShim = new BigUint64Array(u32CvtShim.buffer);
-
-    let cachegetInt32Memory0 = null;
-    function getInt32Memory0() {
-        if (cachegetInt32Memory0 === null || cachegetInt32Memory0.buffer !== wasm.memory.buffer) {
-            cachegetInt32Memory0 = new Int32Array(wasm.memory.buffer);
+            return obj;
         }
-        return cachegetInt32Memory0;
+
+        __destroy_into_raw() {
+            const ptr = this.ptr;
+            this.ptr = 0;
+
+            return ptr;
+        }
+
+        free() {
+            const ptr = this.__destroy_into_raw();
+            wasm.__wbg_queue_free(ptr);
+        }
+        /**
+        */
+        constructor() {
+            var ret = wasm.queue_new();
+            return Queue.__wrap(ret);
+        }
+        /**
+        * @param {string} shape
+        */
+        add_shape(shape) {
+            wasm.queue_add_shape(this.ptr, shape.codePointAt(0));
+        }
+        /**
+        * @param {string} shapes
+        * @param {number} count
+        */
+        add_bag(shapes, count) {
+            var ptr0 = passStringToWasm0(shapes, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
+            var len0 = WASM_VECTOR_LEN;
+            wasm.queue_add_bag(this.ptr, ptr0, len0, count);
+        }
     }
+    __exports.Queue = Queue;
     /**
     */
     class Solver {
@@ -114,42 +166,21 @@ let wasm_bindgen;
             return Solver.__wrap(ret);
         }
         /**
-        * @param {string} pieces
+        * @param {Queue} queue
         * @param {BigInt} garbage
-        * @param {number} count
+        * @param {boolean} can_hold
         * @returns {string}
         */
-        solve_some(pieces, garbage, count) {
+        solve(queue, garbage, can_hold) {
             try {
                 const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-                var ptr0 = passStringToWasm0(pieces, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-                var len0 = WASM_VECTOR_LEN;
+                _assertClass(queue, Queue);
+                var ptr0 = queue.ptr;
+                queue.ptr = 0;
                 uint64CvtShim[0] = garbage;
                 const low1 = u32CvtShim[0];
                 const high1 = u32CvtShim[1];
-                wasm.solver_solve_some(retptr, this.ptr, ptr0, len0, low1, high1, count);
-                var r0 = getInt32Memory0()[retptr / 4 + 0];
-                var r1 = getInt32Memory0()[retptr / 4 + 1];
-                return getStringFromWasm0(r0, r1);
-            } finally {
-                wasm.__wbindgen_add_to_stack_pointer(16);
-                wasm.__wbindgen_free(r0, r1);
-            }
-        }
-        /**
-        * @param {string} pieces
-        * @param {BigInt} garbage
-        * @returns {string}
-        */
-        solve(pieces, garbage) {
-            try {
-                const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
-                var ptr0 = passStringToWasm0(pieces, wasm.__wbindgen_malloc, wasm.__wbindgen_realloc);
-                var len0 = WASM_VECTOR_LEN;
-                uint64CvtShim[0] = garbage;
-                const low1 = u32CvtShim[0];
-                const high1 = u32CvtShim[1];
-                wasm.solver_solve(retptr, this.ptr, ptr0, len0, low1, high1);
+                wasm.solver_solve(retptr, this.ptr, ptr0, low1, high1, can_hold);
                 var r0 = getInt32Memory0()[retptr / 4 + 0];
                 var r1 = getInt32Memory0()[retptr / 4 + 1];
                 return getStringFromWasm0(r0, r1);
@@ -215,6 +246,9 @@ let wasm_bindgen;
         }
         const imports = {};
         imports.wbg = {};
+        imports.wbg.__wbg_progress_e055547d337113c1 = function(arg0, arg1, arg2, arg3) {
+            progress(arg0 >>> 0, arg1 >>> 0, arg2 >>> 0, arg3 >>> 0);
+        };
         imports.wbg.__wbindgen_throw = function(arg0, arg1) {
             throw new Error(getStringFromWasm0(arg0, arg1));
         };
