@@ -88,3 +88,8 @@ fn parse_shape(shape: char) -> Option<Shape> {
         _ => None,
     }
 }
+
+#[wasm_bindgen]
+extern "C" {
+    pub fn progress(piece_count: usize, stage: usize, board_idx: usize, board_total: usize);
+}

@@ -18,6 +18,7 @@ fn scan(
     legal_boards: &HashSet<Board>,
     start: Board,
     bags: &[Bag],
+    piece_count: usize,
     can_hold: bool,
     place_last: bool,
 ) -> Vec<ScanStage> {
@@ -26,14 +27,19 @@ fn scan(
     let mut prev: ScanStage = HashMap::new();
     prev.insert(start, (bags.first().unwrap().init_hold(), SmallVec::new()));
 
-    for (bag, i) in bags
+    for (stage, (bag, i)) in bags
         .iter()
         .flat_map(|b| (0..b.count).into_iter().map(move |i| (b, i)))
         .skip(1)
+        .enumerate()
     {
         let mut next: ScanStage = HashMap::new();
 
-        for (&old_board, (old_queues, _preds)) in prev.iter() {
+        for (board_idx, (&old_board, (old_queues, _preds))) in prev.iter().enumerate() {
+            if board_idx % 4096 == 0 {
+                crate::progress(piece_count, stage, board_idx, prev.len());
+            }
+
             for shape in Shape::ALL {
                 let is_first = i == 0;
                 let new_queues = bag.take(old_queues, shape, is_first, can_hold);
@@ -67,7 +73,11 @@ fn scan(
     if place_last {
         let mut next: ScanStage = HashMap::new();
 
-        for (&old_board, (old_queues, _preds)) in prev.iter() {
+        for (board_idx, (&old_board, (old_queues, _preds))) in prev.iter().enumerate() {
+            if board_idx % 4096 == 0 {
+                crate::progress(piece_count, piece_count, board_idx, prev.len());
+            }
+
             for shape in Shape::ALL {
                 if old_queues.iter().any(|queue| queue.hold() == Some(shape)) {
                     for (_, new_board) in PiecePlacer::new(old_board, shape) {
@@ -87,6 +97,8 @@ fn scan(
         stages.push(prev);
         prev = next;
     }
+
+    crate::progress(piece_count, piece_count, 1, 1);
 
     stages.push(prev);
     stages
@@ -118,20 +130,26 @@ fn place(
     culled: &HashSet<Board>,
     start: BrokenBoard,
     bags: &[Bag],
+    piece_count: usize,
     can_hold: bool,
     place_last: bool,
 ) -> HashMap<BrokenBoard, SmallVec<[QueueState; 7]>> {
     let mut prev = HashMap::new();
     prev.insert(start, bags.first().unwrap().init_hold());
 
-    for (bag, i) in bags
+    for (stage, (bag, i)) in bags
         .iter()
         .flat_map(|b| (0..b.count).into_iter().map(move |i| (b, i)))
         .skip(1)
+        .enumerate()
     {
         let mut next: HashMap<BrokenBoard, SmallVec<[QueueState; 7]>> = HashMap::new();
 
-        for (old_board, old_queues) in prev.iter() {
+        for (board_idx, (old_board, old_queues)) in prev.iter().enumerate() {
+            if board_idx % 4096 == 0 {
+                crate::progress(piece_count, piece_count + 1 + stage, board_idx, prev.len());
+            }
+
             for shape in Shape::ALL {
                 let is_first = i == 0;
                 let new_queues = bag.take(old_queues, shape, is_first, can_hold);
@@ -159,7 +177,11 @@ fn place(
     if place_last {
         let mut next: HashMap<BrokenBoard, SmallVec<[QueueState; 7]>> = HashMap::new();
 
-        for (old_board, old_queues) in prev.iter() {
+        for (board_idx, (old_board, old_queues)) in prev.iter().enumerate() {
+            if board_idx % 4096 == 0 {
+                crate::progress(piece_count, 2 * piece_count + 1, board_idx, prev.len());
+            }
+
             for shape in Shape::ALL {
                 if old_queues.iter().any(|queue| queue.hold() == Some(shape)) {
                     for (piece, new_board) in PiecePlacer::new(old_board.board, shape) {
@@ -174,6 +196,8 @@ fn place(
         prev = next;
     }
 
+    crate::progress(piece_count, 2 * piece_count + 1, 1, 1);
+
     prev
 }
 
@@ -187,12 +211,27 @@ pub fn compute(
         return vec![start.clone()];
     }
 
-    let new_mino_count: u32 = bags.iter().map(|b| b.count as u32 * 4).sum();
+    let piece_count = bags.iter().map(|b| b.count as usize).sum();
+    let new_mino_count = piece_count as u32 * 4;
     let place_last = start.board.0.count_ones() + new_mino_count <= 40;
 
-    let scanned = scan(legal_boards, start.board, bags, can_hold, place_last);
+    let scanned = scan(
+        legal_boards,
+        start.board,
+        bags,
+        piece_count,
+        can_hold,
+        place_last,
+    );
     let culled = cull(&scanned);
-    let mut placed = place(&culled, start.clone(), bags, can_hold, place_last);
+    let mut placed = place(
+        &culled,
+        start.clone(),
+        bags,
+        piece_count,
+        can_hold,
+        place_last,
+    );
 
     let mut solutions: Vec<BrokenBoard> =
         placed.drain().map(|(board, _queue_states)| board).collect();

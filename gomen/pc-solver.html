@@ -173,6 +173,8 @@
             <label><input id="hold" type="checkbox" checked> Use hold</label>
         </div>
 
+        <progress id="progress" style="grid-column: span 2;"></progress>
+
     </div>
 
     <div id="loading">Loading solver...</div>
@@ -187,7 +189,9 @@
         let queue = document.getElementById("queue");
         let queueErrors = document.getElementById("queue-errors");
         let hold = document.getElementById("hold");
+        let progress = document.getElementById("progress");
         let solutions = document.getElementById("solutions");
+        let progressTimeout = window.setTimeout(() => { }, 0);
 
         worker.onmessage = message => {
             if (message.data.kind == "ready") {
@@ -195,6 +199,8 @@
 
                 if (work != null) {
                     worker.postMessage(work);
+                } else {
+                    hideProgress();
                 }
 
                 return;
@@ -205,9 +211,15 @@
                 initialErrors.innerText = "inital field has no solutions or is unreachable";
                 solutions.innerHTML = "";
                 solutions.classList.remove("loading");
+                hideProgress();
                 return;
             } else if (message.data.kind == "possible" && message.data.query.garbage == getGarbage()[0]) {
                 initialErrors.innerText = "";
+                return;
+            }
+
+            if (message.data.kind == "progress") {
+                progress.value = message.data.amount;
                 return;
             }
 
@@ -216,9 +228,11 @@
                 || message.data.query.hold != work.hold
                 || message.data.query.count != work.count) {
                 worker.postMessage(work);
+                showProgress();
                 return;
             } else {
                 work = null;
+                hideProgress();
                 solutions.innerHTML = "";
                 solutions.classList.remove("loading");
             }
@@ -232,6 +246,18 @@
                 button.onclick = () => showSolutions(message.data.solutions, count);
                 solutions.appendChild(button);
             }
+        }
+
+        function hideProgress() {
+            window.clearTimeout(progressTimeout);
+            progress.style.display = "none";
+        }
+        function showProgress() {
+            progress.removeAttribute("value");
+            window.clearTimeout(progressTimeout);
+            progressTimeout = window.setTimeout(() => {
+                progress.style.display = "";
+            }, 1000);
         }
 
         function showSolutions(solns, count) {
@@ -310,6 +336,7 @@
                 solutions.classList.add("loading");
                 work = { queue: queue.value, garbage, hold: hold.checked };
                 worker.postMessage(work);
+                showProgress();
             } else {
                 work = { queue: queue.value, garbage, hold: hold.checked };
             }

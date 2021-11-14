@@ -1,5 +1,12 @@
 importScripts("./pkg/solver.js");
 
+function progress(piece_count, stage, board_idx, board_total) {
+    let stage_progress = board_idx / board_total;
+    let total_progress = (stage + stage_progress) / (2 + 2 * piece_count);
+
+    postMessage({ kind: "progress", amount: total_progress });
+}
+
 async function main() {
     await wasm_bindgen("./pkg/solver_bg.wasm");
     let solver = new wasm_bindgen.Solver();
@@ -33,6 +40,10 @@ async function main() {
         }
 
         let solutions = solver.solve(queue, query.garbage, query.hold).split(",");
+
+        if (solutions[0] == "") {
+            solutions = [];
+        }
 
         postMessage({ kind: "ok", query, solutions });
     }
