@@ -123,6 +123,65 @@ impl Board {
         (self.0 & mask) != 0
     }
 
+    /// Shift all full lines to the bottom of the board.
+    ///
+    /// This is like clearing lines, but also keeps track of how many lines have
+    /// been cleared on the board already.
+    #[must_use]
+    pub fn shift_full(mut self) -> Board {
+        let mut ordered_board = 0;
+        let mut complete_lines = 0;
+        let mut complete_lines_shift = 0;
+
+        for _ in 0..4 {
+            let this_line = (self.0 >> 30) & 0b1111111111;
+            self.0 <<= 10;
+
+            if this_line == 0b1111111111 {
+                complete_lines <<= 10;
+                complete_lines |= this_line;
+                complete_lines_shift += 10;
+            } else {
+                ordered_board <<= 10;
+                ordered_board |= this_line;
+            }
+        }
+
+        ordered_board <<= complete_lines_shift;
+        ordered_board |= complete_lines;
+
+        Board(ordered_board)
+    }
+
+    /// Flip the board horizontally.
+    #[must_use]
+    pub fn flip(self) -> Board {
+        const COL_0: u64 = 0b1_0000000001_0000000001_0000000001;
+        const COL_1: u64 = COL_0 << 1;
+        const COL_2: u64 = COL_0 << 2;
+        const COL_3: u64 = COL_0 << 3;
+        const COL_4: u64 = COL_0 << 4;
+        const COL_5: u64 = COL_0 << 5;
+        const COL_6: u64 = COL_0 << 6;
+        const COL_7: u64 = COL_0 << 7;
+        const COL_8: u64 = COL_0 << 8;
+        const COL_9: u64 = COL_0 << 9;
+
+        let board = 0
+            | ((self.0 & COL_0) << 9)
+            | ((self.0 & COL_1) << 7)
+            | ((self.0 & COL_2) << 5)
+            | ((self.0 & COL_3) << 3)
+            | ((self.0 & COL_4) << 1)
+            | ((self.0 & COL_5) >> 1)
+            | ((self.0 & COL_6) >> 3)
+            | ((self.0 & COL_7) >> 5)
+            | ((self.0 & COL_8) >> 7)
+            | ((self.0 & COL_9) >> 9);
+
+        Board(board)
+    }
+
     /// Check whether the board has a cell that cannot be filled.
     ///
     /// If the two cells to the left and right of an empty cell are both full
@@ -404,30 +463,7 @@ impl Piece {
         debug_assert!(self.can_place(board));
         debug_assert!((board.0 & self.as_bits()) == 0);
 
-        let mut unordered_board = board.0 | self.as_bits();
-
-        let mut ordered_board = 0;
-        let mut complete_lines = 0;
-        let mut complete_lines_shift = 0;
-
-        for _ in 0..4 {
-            let this_line = (unordered_board >> 30) & 0b1111111111;
-            unordered_board <<= 10;
-
-            if this_line == 0b1111111111 {
-                complete_lines <<= 10;
-                complete_lines |= this_line;
-                complete_lines_shift += 10;
-            } else {
-                ordered_board <<= 10;
-                ordered_board |= this_line;
-            }
-        }
-
-        ordered_board <<= complete_lines_shift;
-        ordered_board |= complete_lines;
-
-        Board(ordered_board)
+        Board(board.0 | self.as_bits()).shift_full()
     }
 
     /// Shift a piece left.  If impossible, returns the piece unchanged.
@@ -525,6 +561,12 @@ impl Piece {
         }
 
         self
+    }
+
+    #[must_use]
+    pub fn flip_180(self, _board: Board) -> Piece {
+        let _rotation = self.rotation.flip_180();
+        todo!()
     }
 }
 
@@ -667,6 +709,14 @@ static KICKS: [&[[(i8, i8); 5]; 4]; 7] = [
     &JLSTZ_KICKS, /* Z */
 ];
 
+/*
+TODO: need kick table for each distinct bounding box
+static TETRIO_180_KICKS: [[(i8, i8); 6]; 4] = [
+    [(0, -1), (0, 0), (1, 0), (-1, 0), (1, -1), (-1, -1)],
+    [(-1, 0), (0, 0), (0, 2), (0, 1), (-1, 2), ()],
+];
+*/
+
 /// Bit mask for the bottom four rows (bottom 40 bits) of the game [board].
 ///
 /// [board]: Board
@@ -715,6 +765,16 @@ impl Rotation {
             Rotation::Clockwise => Rotation::None,
             Rotation::Half => Rotation::Clockwise,
             Rotation::CounterClockwise => Rotation::Half,
+        }
+    }
+
+    /// The rotation 180 degrees from the given one.
+    pub fn flip_180(self) -> Rotation {
+        match self {
+            Rotation::None => Rotation::Half,
+            Rotation::Clockwise => Rotation::CounterClockwise,
+            Rotation::Half => Rotation::None,
+            Rotation::CounterClockwise => Rotation::Clockwise,
         }
     }
 
