@@ -5,6 +5,11 @@ pub mod boardgraph;
 pub mod counter;
 
 fn main() -> std::io::Result<()> {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(num_cpus::get())
+        .build_global()
+        .unwrap();
+
     let boards = boardgraph::start_anywhere::compute();
 
     let file = OpenOptions::new()
