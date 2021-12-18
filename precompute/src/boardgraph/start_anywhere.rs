@@ -1,5 +1,6 @@
 use std::{collections::HashSet, io::Write, time::Duration};
 
+use parking_lot::RwLock;
 use rayon::prelude::*;
 
 use basic::{
@@ -7,7 +8,6 @@ use basic::{
     piece_placer::PiecePlacer,
 };
 
-use super::Stage;
 use crate::counter::Counter;
 
 pub fn compute() -> Vec<Board> {
@@ -55,7 +55,7 @@ pub fn compute() -> Vec<Board> {
                 for shape in Shape::ALL {
                     for (_, new_board) in PiecePlacer::new(board, shape) {
                         if possible.contains(&new_board) {
-                            next_stage.0.lock_subset(board).insert(board, ());
+                            next_stage.insert(board);
                             count_success.increment();
                             return;
                         }
@@ -80,18 +80,23 @@ pub fn compute() -> Vec<Board> {
     all_boards
 }
 
-pub struct StartAnywhereStage(pub Stage<()>);
+pub struct StartAnywhereStage(Vec<RwLock<Vec<Board>>>);
 
 impl StartAnywhereStage {
     pub fn empty() -> StartAnywhereStage {
-        StartAnywhereStage(Stage::empty())
+        let mut locks = Vec::new();
+        locks.resize_with(num_cpus::get(), || RwLock::new(Vec::new()));
+        StartAnywhereStage(locks)
     }
 
-    pub fn collect(&self, boards: &mut HashSet<Board>) {
-        for subset in self.0.lock_all().0 {
-            for (&board, _) in subset.iter() {
-                boards.insert(board);
-            }
+    pub fn insert(&self, board: Board) {
+        let shard = &self.0[rayon::current_thread_index().unwrap()];
+        shard.write().push(board);
+    }
+
+    pub fn collect<E: Extend<Board>>(&self, into: &mut E) {
+        for shard in &self.0 {
+            into.extend(shard.read().iter().copied());
         }
     }
 }
