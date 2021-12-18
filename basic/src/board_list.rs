@@ -7,11 +7,20 @@ pub fn write(boards: &[Board], mut w: impl Write) -> io::Result<()> {
 
     let mut current = 0;
 
-    for &board in boards {
+    for (count, &board) in boards.iter().enumerate() {
         let diff = board.0 - current;
         current = board.0;
 
         leb128::write::unsigned(&mut w, diff)?;
+
+        if count % 1024 == 0 {
+            eprint!(
+                "\r{} / {} ({}%)",
+                count,
+                boards.len(),
+                (count as f64) / (boards.len() as f64) * 100.,
+            );
+        }
     }
 
     Ok(())

@@ -11,5 +11,6 @@ num_cpus = "1.0"
 parking_lot = "0.11.1"
 rayon = "1.5.1"
 smallvec = { version = "1.6.1", features = ["union"] }
+zstd = "0.9"
 
 basic = { path = "../basic" }

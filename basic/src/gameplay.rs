@@ -123,6 +123,36 @@ impl Board {
         (self.0 & mask) != 0
     }
 
+    /// Shift all full lines to the bottom of the board.
+    ///
+    /// This is like clearing lines, but also keeps track of how many lines have
+    /// been cleared on the board already.
+    #[must_use]
+    pub fn shift_full(mut self) -> Board {
+        let mut ordered_board = 0;
+        let mut complete_lines = 0;
+        let mut complete_lines_shift = 0;
+
+        for _ in 0..4 {
+            let this_line = (self.0 >> 30) & 0b1111111111;
+            self.0 <<= 10;
+
+            if this_line == 0b1111111111 {
+                complete_lines <<= 10;
+                complete_lines |= this_line;
+                complete_lines_shift += 10;
+            } else {
+                ordered_board <<= 10;
+                ordered_board |= this_line;
+            }
+        }
+
+        ordered_board <<= complete_lines_shift;
+        ordered_board |= complete_lines;
+
+        Board(ordered_board)
+    }
+
     /// Check whether the board has a cell that cannot be filled.
     ///
     /// If the two cells to the left and right of an empty cell are both full
@@ -404,30 +434,7 @@ impl Piece {
         debug_assert!(self.can_place(board));
         debug_assert!((board.0 & self.as_bits()) == 0);
 
-        let mut unordered_board = board.0 | self.as_bits();
-
-        let mut ordered_board = 0;
-        let mut complete_lines = 0;
-        let mut complete_lines_shift = 0;
-
-        for _ in 0..4 {
-            let this_line = (unordered_board >> 30) & 0b1111111111;
-            unordered_board <<= 10;
-
-            if this_line == 0b1111111111 {
-                complete_lines <<= 10;
-                complete_lines |= this_line;
-                complete_lines_shift += 10;
-            } else {
-                ordered_board <<= 10;
-                ordered_board |= this_line;
-            }
-        }
-
-        ordered_board <<= complete_lines_shift;
-        ordered_board |= complete_lines;
-
-        Board(ordered_board)
+        Board(board.0 | self.as_bits()).shift_full()
     }
 
     /// Shift a piece left.  If impossible, returns the piece unchanged.

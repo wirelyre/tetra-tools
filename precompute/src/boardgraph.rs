@@ -1,5 +1,6 @@
 pub mod gamestate;
 pub mod simple;
+pub mod start_anywhere;
 
 use std::collections::HashMap;
 
