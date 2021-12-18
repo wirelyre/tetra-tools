@@ -45,7 +45,7 @@ pub fn compute() -> Vec<Board> {
                 count_total.increment();
 
                 if board.0.count_ones() != mino_count
-                    || board.shift_full() != board
+                    || is_invalid(board)
                     || board.has_isolated_cell()
                     || board.has_imbalanced_split()
                 {
@@ -78,6 +78,39 @@ pub fn compute() -> Vec<Board> {
     eprintln!("done");
 
     all_boards
+}
+
+fn is_invalid(board: Board) -> bool {
+    #[derive(Eq, Ord, PartialEq, PartialOrd)]
+    enum State {
+        Full,
+        Mixed,
+        Empty,
+        Invalid,
+    }
+
+    use State::*;
+
+    fn step(state: State, line: u64) -> State {
+        let line = match line & 0b1111111111 {
+            0b0000000000 => Empty,
+            0b1111111111 => Full,
+            _ => Mixed,
+        };
+
+        if state <= line {
+            line
+        } else {
+            Invalid
+        }
+    }
+
+    let state = step(Full, board.0 >> 0);
+    let state = step(state, board.0 >> 10);
+    let state = step(state, board.0 >> 20);
+    let state = step(state, board.0 >> 30);
+
+    state == Invalid
 }
 
 pub struct StartAnywhereStage(Vec<RwLock<Vec<Board>>>);
