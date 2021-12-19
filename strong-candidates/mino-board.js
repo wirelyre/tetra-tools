@@ -1,0 +1,1 @@
+../gomen/mino-board.js

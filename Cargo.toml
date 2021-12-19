@@ -4,4 +4,5 @@ members = [
     "basic",
     "precompute",
     "solver",
+    "strong-candidates",
 ]

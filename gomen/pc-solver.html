@@ -153,214 +153,57 @@
             <div id="initial-errors" class="errors"></div>
         </div>
 
-        <div>
-            <div class="label">Queue</div>
-            <details>
-                <summary>Examples</summary>
-                <pre>IJLOSTZ</pre>
-                <pre>L[TS]I</pre>
-                <pre>L[TS]2I</pre>
-                <pre>*5</pre>
-            </details>
-        </div>
-        <div style="display: grid">
-            <input type="text" id="queue">
-            <div id="queue-errors" class="errors"></div>
-        </div>
-
-        <div class="label">Options</div>
-        <div>
-            <label><input id="hold" type="checkbox" checked> Use hold</label>
-        </div>
-
-        <progress id="progress" style="grid-column: span 2;"></progress>
-
     </div>
 
     <div id="loading">Loading solver...</div>
 
     <div id="solutions"></div>
 
+    <script src="./pkg/strong_candidates.js"></script>
+
     <script type="module">
-        let worker = new Worker("worker.js");
-        let work = null;
+        // importScripts("./pkg/strong-candidates.js");
 
-        let initialErrors = document.getElementById("initial-errors");
-        let queue = document.getElementById("queue");
-        let queueErrors = document.getElementById("queue-errors");
-        let hold = document.getElementById("hold");
-        let progress = document.getElementById("progress");
-        let solutions = document.getElementById("solutions");
-        let progressTimeout = window.setTimeout(() => { }, 0);
+        async function main() {
 
-        worker.onmessage = message => {
-            if (message.data.kind == "ready") {
-                document.getElementById("loading").remove();
+            await wasm_bindgen("./pkg/strong_candidates_bg.wasm");
 
-                if (work != null) {
-                    worker.postMessage(work);
+            let solver = new wasm_bindgen.Solver();
+            document.getElementById("loading").remove();
+
+            let initialErrors = document.getElementById("initial-errors");
+            let solutions = document.getElementById("solutions");
+
+            function doSolve() {
+                let garbage = 0n;
+
+                for (let i = 0n; i < 40n; i++) {
+                    if (document.getElementById("cell" + i).checked) {
+                        garbage |= 1n << i;
+                    }
+                }
+
+                if (!solver.possible(garbage)) {
+                    initialErrors.innerText = "impossible starting board";
+                    return;
                 } else {
-                    hideProgress();
+                    initialErrors.innerHTML = "";
                 }
 
-                return;
-            }
+                let candidates = solver.candidates(garbage).split(",");
 
-            if (message.data.kind == "impossible" && message.data.query.garbage == getGarbage()[0]) {
-                work = null;
-                initialErrors.innerText = "inital field has no solutions or is unreachable";
                 solutions.innerHTML = "";
-                solutions.classList.remove("loading");
-                hideProgress();
-                return;
-            } else if (message.data.kind == "possible" && message.data.query.garbage == getGarbage()[0]) {
-                initialErrors.innerText = "";
-                return;
-            }
-
-            if (message.data.kind == "progress") {
-                progress.value = message.data.amount;
-                return;
-            }
-
-            if (message.data.query.queue != work.queue
-                || message.data.query.garbage != work.garbage
-                || message.data.query.hold != work.hold
-                || message.data.query.count != work.count) {
-                worker.postMessage(work);
-                showProgress();
-                return;
-            } else {
-                work = null;
-                hideProgress();
-                solutions.innerHTML = "";
-                solutions.classList.remove("loading");
-            }
-
-            showSolutions(message.data.solutions, 50);
-            let count = message.data.solutions.length;
-
-            if (count > 50) {
-                let button = document.createElement("button");
-                button.innerText = `And ${count - 50} more...`;
-                button.onclick = () => showSolutions(message.data.solutions, count);
-                solutions.appendChild(button);
-            }
-        }
-
-        function hideProgress() {
-            window.clearTimeout(progressTimeout);
-            progress.style.display = "none";
-        }
-        function showProgress() {
-            progress.removeAttribute("value");
-            window.clearTimeout(progressTimeout);
-            progressTimeout = window.setTimeout(() => {
-                progress.style.display = "";
-            }, 1000);
-        }
-
-        function showSolutions(solns, count) {
-            if (solns.length == 0) {
-                solutions.innerText = "no solutions";
-            } else {
-                solutions.innerHTML = "";
-            }
-
-            for (const soln of solns) {
-                if (count == 0) { break; }
-                count--;
-
-                solutions.appendChild(new MinoBoard(soln));
-            }
-        }
-
-        function getGarbage() {
-            let garbage = 0n;
-            let garbageCount = 0;
-
-            for (let i = 0n; i < 40n; i++) {
-                if (document.getElementById("cell" + i).checked) {
-                    garbage |= 1n << i;
-                    garbageCount += 1;
+                for (const candidate of candidates) {
+                    solutions.appendChild(new MinoBoard(candidate));
                 }
             }
 
-            return [garbage, garbageCount];
+            for (let i = 0; i < 40; i++) {
+                document.getElementById("cell" + i).addEventListener("click", (ev) => doSolve());
+            }
+
         }
-
-        function doSolve() {
-            let whole = /^([ILJOSTZ]|(\[[ILJOSTZ]+\]|\*)\d*)*$/;
-            if (!whole.test(queue.value)) {
-                queueErrors.innerText = "bad queue (see examples)";
-                return;
-            }
-
-            let bag = /[ILJOSTZ]|\[([ILJOSTZ]+)\](\d*)|(\*)(\d*)/g;
-            let pieceCount = 0;
-
-            for (let match of queue.value.matchAll(bag)) {
-                if (match[1]) {
-                    let bagSize = match[1].length;
-                    let bagCount = parseInt(match[2], 10) || 1;
-                    pieceCount += bagCount;
-
-                    if (bagCount > bagSize) {
-                        queueErrors.innerText = `bag [${match[1]}] has only ${bagSize} shapes`;
-                        return;
-                    }
-                }
-
-                if (match[3]) {
-                    let bagSize = 7;
-                    let bagCount = parseInt(match[4], 10) || 1;
-                    pieceCount += bagCount;
-
-                    if (bagCount > bagSize) {
-                        queueErrors.innerText = `bag * has only ${bagSize} shapes`;
-                        return;
-                    }
-                }
-            }
-
-            let [garbage, garbageCount] = getGarbage();
-
-            if (garbageCount + pieceCount * 4 > 44) {
-                queueErrors.innerText = `too many pieces in queue (${pieceCount} total)`;
-                return;
-            }
-
-            queueErrors.innerText = "";
-
-            if (work == null) {
-                solutions.classList.add("loading");
-                work = { queue: queue.value, garbage, hold: hold.checked };
-                worker.postMessage(work);
-                showProgress();
-            } else {
-                work = { queue: queue.value, garbage, hold: hold.checked };
-            }
-        }
-
-        queue.addEventListener("input", (ev) => {
-            for (let i = 0; i < queue.value.length; i++) {
-                let val = queue.value[i];
-                if (val.toUpperCase() != val) {
-                    queue.setRangeText(queue.value[i].toUpperCase(), i, i + 1, "end");
-                }
-            }
-
-            doSolve();
-        });
-
-        hold.addEventListener("input", (ev) => doSolve());
-
-        for (let i = 0; i < 40; i++) {
-            document.getElementById("cell" + i)
-                .addEventListener("input", (ev) => doSolve());
-        }
-
-        doSolve();
+        main();
 
     </script>
 
