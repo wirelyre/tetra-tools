@@ -240,20 +240,16 @@ pub fn compute(
     solutions
 }
 
-pub fn print(board: &BrokenBoard, garbage: Board, to: &mut String) {
+pub fn print(board: &BrokenBoard, to: &mut String) {
     let pieces: Vec<(Shape, Board)> = board
         .pieces
         .iter()
         .map(|&piece| (piece.shape, piece.board()))
         .collect();
+    let bits = board.to_broken_bitboard();
 
     for row in (0..4).rev() {
         'cell: for col in 0..10 {
-            if garbage.get(row, col) {
-                to.push('G');
-                continue 'cell;
-            }
-
             for &(shape, board) in &pieces {
                 if board.get(row, col) {
                     to.push_str(shape.name());
@@ -261,7 +257,11 @@ pub fn print(board: &BrokenBoard, garbage: Board, to: &mut String) {
                 }
             }
 
-            to.push('_');
+            if bits.get(row, col) {
+                to.push('G');
+            } else {
+                to.push('_');
+            }
         }
     }
 }

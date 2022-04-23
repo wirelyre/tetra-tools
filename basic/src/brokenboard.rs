@@ -76,6 +76,27 @@ impl BrokenBoard {
         new
     }
 
+    pub fn to_broken_bitboard(&self) -> Board {
+        let mut old = self.board.0;
+        let mut new = 0;
+
+        for row in (0..4).rev() {
+            let full = (self.cleared_rows & (1 << row)) != 0;
+
+            let new_row = if full {
+                old >>= 10;
+                0b1111111111
+            } else {
+                (old >> (10 * row)) & 0b1111111111
+            };
+
+            new <<= 10;
+            new |= new_row;
+        }
+
+        Board(new)
+    }
+
     pub fn place(&self, piece: Piece) -> Self {
         let mut new = BrokenBoard {
             board: piece.place(self.board),
