@@ -10,3 +10,11 @@ ahash = "0.7.6"
 bitvec = "0.22.3"
 leb128 = "0.2.4"
 smallvec = { version = "1.6.1", features = ["union"] }
+
+[dev-dependencies]
+criterion = "0.3"
+
+
+[[bench]]
+name = "supporting_queues"
+harness = false
