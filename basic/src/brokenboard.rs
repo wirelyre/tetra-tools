@@ -321,7 +321,7 @@ impl BrokenBoard {
 
     /// Run a search to find all queues that can produce this board without
     /// holding.
-    pub fn supporting_queues(&self) -> Vec<Queue> {
+    pub fn supporting_queues(&self, legal_boards: &ahash::AHashSet<Board>) -> Vec<Queue> {
         let mut garbage = self.to_broken_bitboard().0;
 
         for &piece in &self.pieces {
@@ -341,6 +341,9 @@ impl BrokenBoard {
                     .pieces
                     .iter()
                     .filter_map(|&p| board.placeable(p))
+                    .filter(|&p| {
+                        legal_boards.is_empty() || legal_boards.contains(&board.place(p).board)
+                    })
                     .collect();
 
                 for shape in Shape::ALL {

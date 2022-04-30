@@ -111,7 +111,7 @@ pub fn solution_info(encoded: &str) -> String {
         None => return ret,
     };
 
-    let mut without_hold = board.supporting_queues();
+    let mut without_hold = board.supporting_queues(&Default::default());
     without_hold.sort_unstable_by_key(|q| q.natural_order_key());
 
     let with_hold = basic::queue::Queue::unhold_many(&without_hold);
