@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use ahash::AHashSet;
 use bitvec::prelude::*;
 use smallvec::SmallVec;
 
@@ -329,12 +328,12 @@ impl BrokenBoard {
             garbage ^= piece.board().0;
         }
 
-        let mut prev = HashSet::new();
+        let mut prev = AHashSet::new();
         // TODO: let mut prev = HashSet::with_capacity(100);
         prev.insert((BrokenBoard::from_garbage(garbage), Queue::empty()));
 
         for _ in 0..self.pieces.len() {
-            let mut next = HashSet::new();
+            let mut next = AHashSet::with_capacity(100);
 
             for (board, queue) in prev {
                 // TODO: let mut placeable: SmallVec<[Piece; 10]> = self
