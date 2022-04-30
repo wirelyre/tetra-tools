@@ -270,6 +270,13 @@ impl BrokenBoard {
 
         // Which rows, if any, must be cleared for this piece to work?
         // That is, which rows split the piece?  They must be cleared already.
+
+        // TODO: const CONTIGUOUS_MASKS: [u8; 16] = [
+        //     0b0000, 0b0000, 0b0000, 0b0000, 0b0000, 0b0010, 0b0000, 0b0000, 0b0000, 0b0110, 0b0100,
+        //     0b0100, 0b0000, 0b0010, 0b0000, 0b0000,
+        // ];
+        // let required_clear = CONTIGUOUS_MASKS[piece.rows as usize];
+
         let required_clear = below_top_1(piece.rows) & above_bottom_1(piece.rows) & !piece.rows;
         if required_clear & self.cleared_rows != required_clear {
             return None;
@@ -282,6 +289,16 @@ impl BrokenBoard {
         // Which lines have been stashed at the bottom of the board?
         // The coordinates of `piece` already account for lines below `piece.low_mino`.
         // How many cleared lines lie above the lowest line this piece inhabits?
+
+        /*
+        TODO:
+        const LINES_ABOVE: [u8; 16] = [
+            0b1111, 0b1110, 0b1100, 0b1100, 0b1000, 0b1010, 0b1000, 0b1000, 0b0000, 0b0110, 0b0100,
+            0b0100, 0b0000, 0b0010, 0b0000, 0b0000,
+        ];
+        let bump_row = (self.cleared_rows & LINES_ABOVE[piece.rows as usize]).count_ones();
+        */
+
         let bump_row = (self.cleared_rows & above_bottom_1(piece.rows)).count_ones();
 
         let p = Piece {
@@ -313,12 +330,14 @@ impl BrokenBoard {
         }
 
         let mut prev = HashSet::new();
+        // TODO: let mut prev = HashSet::with_capacity(100);
         prev.insert((BrokenBoard::from_garbage(garbage), Queue::empty()));
 
         for _ in 0..self.pieces.len() {
             let mut next = HashSet::new();
 
             for (board, queue) in prev {
+                // TODO: let mut placeable: SmallVec<[Piece; 10]> = self
                 let mut placeable: Vec<Piece> = self
                     .pieces
                     .iter()
