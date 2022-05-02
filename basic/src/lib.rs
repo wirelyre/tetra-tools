@@ -1,3 +1,4 @@
+pub mod base64;
 pub mod board_list;
 pub mod brokenboard;
 pub mod gameplay;
