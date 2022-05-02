@@ -12,24 +12,32 @@ pub mod queue;
 pub mod solver;
 
 #[wasm_bindgen]
+pub fn init() -> *mut Solver {
+    let contents = include_bytes!("../../simple-boards.leb128");
+
+    let boards: HashSet<Board> = board_list::read(Cursor::new(contents))
+        .unwrap()
+        .drain(..)
+        .collect();
+    // let boards = Default::default();
+
+    let solver = Box::new(Solver { boards });
+    Box::leak(solver)
+}
+
+#[wasm_bindgen]
+// note: this is actually unsafe
+pub fn boot_solver(solver: *mut Solver) -> Solver {
+    unsafe { *Box::from_raw(solver) }
+}
+
+#[wasm_bindgen]
 pub struct Solver {
     boards: HashSet<Board>,
 }
 
 #[wasm_bindgen]
 impl Solver {
-    #[wasm_bindgen(constructor)]
-    pub fn init() -> Solver {
-        let contents = include_bytes!("../../simple-boards.leb128");
-
-        let boards: HashSet<Board> = board_list::read(Cursor::new(contents))
-            .unwrap()
-            .drain(..)
-            .collect();
-
-        Solver { boards }
-    }
-
     pub fn solve(&self, queue: Queue, garbage: u64, can_hold: bool) -> String {
         let start = BrokenBoard::from_garbage(garbage);
         let solutions = solver::compute(&self.boards, &start, &queue.bags, can_hold);

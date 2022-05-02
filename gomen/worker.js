@@ -1,51 +1,95 @@
 importScripts("./pkg/solver.js");
 
-function progress(piece_count, stage, board_idx, board_total) {
-    let stage_progress = board_idx / board_total;
-    let total_progress = (stage + stage_progress) / (2 + 2 * piece_count);
+onmessage = message => {
+    onmessage = null;
 
-    postMessage({ kind: "progress", amount: total_progress });
-}
+    if (message.data.kind == "start") {
 
-async function main() {
-    await wasm_bindgen("./pkg/solver_bg.wasm");
-    let solver = new wasm_bindgen.Solver();
+        (async () => {
 
-    console.log("ready");
-    postMessage({ kind: "ready" });
+            console.time("init");
 
-    onmessage = message => {
-        let query = message.data;
+            let module = await WebAssembly.compileStreaming(fetch("./pkg/solver_bg.wasm"));
 
-        if (!solver.possible(query.garbage)) {
-            postMessage({ kind: "impossible", query });
-            return;
-        } else {
-            postMessage({ kind: "possible", query });
-        }
+            let wasm = await wasm_bindgen(module);
+            let init_ptr = wasm_bindgen.init();
+            let memory = wasm.memory.buffer.slice();
 
-        let queue = new wasm_bindgen.Queue();
+            let subworker = new SubWorker(module, memory, init_ptr);
+            onmessage = message => run(subworker, message.data);
 
-        let bag = /[ILJOSTZ]|\[([ILJOSTZ]+)\](\d*)|(\*)(\d*)/g;
-        for (let match of query.queue.matchAll(bag)) {
-            if (match[1]) {
-                let count = parseInt(match[2], 10) || 1;
-                queue.add_bag(match[1], count);
-            } else if (match[3]) {
-                let count = parseInt(match[4], 10) || 1;
-                queue.add_bag("IJLOSTZ", count);
-            } else {
-                queue.add_shape(match[0]);
-            }
-        }
+            postMessage({
+                id: message.data.id,
+                success: true,
+                kind: "ready",
+            });
 
-        let solutions = solver.solve(queue, query.garbage, query.hold).split(",");
+        })();
 
-        if (solutions[0] == "") {
-            solutions = [];
-        }
+    } else if (message.data.kind == "start-subworker") {
 
-        postMessage({ kind: "ok", query, solutions });
+        let { module, memory, init_ptr } = message.data;
+
+        (async () => {
+
+            console.time("boot-subworker");
+
+            let wasm = await wasm_bindgen(module);
+
+            wasm.memory.grow((memory.byteLength - wasm.memory.buffer.byteLength) / 64 / 1024);
+            let bytes = new Uint8Array(wasm.memory.buffer);
+            bytes.set(memory);
+
+            let solver = wasm_bindgen.boot_solver(init_ptr);
+
+            console.timeEnd("boot-subworker");
+
+            console.log(solver, solver.possible(1n));
+
+        })();
+
     }
 }
-main();
+
+class SubWorker {
+    constructor(module, memory, init_ptr) {
+        this._module = module;
+        this._memory = memory;
+        this._init_ptr = init_ptr;
+
+        this.spawn();
+    }
+
+    spawn() {
+        this.worker = new Worker("worker.js");
+        this.worker.postMessage({
+            kind: "start-subworker",
+            module: this._module,
+            memory: this._memory,
+            init_ptr: this._init_ptr,
+        });
+
+        this.status = "READY";
+    }
+
+    call(message) {
+        if (this.status == "BUSY") {
+            this.worker.terminate();
+            this._reject();
+
+            this.spawn();
+        }
+
+        return new Promise((resolve, reject) => {
+            this.worker.onmessage = resolve;
+            this._reject = reject;
+            this.worker.postMessage(message);
+        });
+    }
+}
+
+function run(subworker, message) {
+
+    console.log(subworker, message);
+
+}
