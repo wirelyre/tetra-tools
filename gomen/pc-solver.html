@@ -5,6 +5,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
+    <title>PC solver</title>
+
     <style type="text/css">
         mino-board {
             display: block;
@@ -271,7 +273,14 @@
                 if (count == 0) { break; }
                 count--;
 
-                solutions.appendChild(new MinoBoard(soln));
+                let [cells, id] = soln.split("|");
+
+                let link = document.createElement("a");
+                link.href = "./solution-info.html?s=" + id;
+                link.target = "_blank";
+
+                link.appendChild(new MinoBoard(cells));
+                solutions.appendChild(link);
             }
         }
 

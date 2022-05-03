@@ -695,6 +695,20 @@ impl Shape {
     pub fn name(self) -> &'static str {
         ["I", "J", "L", "O", "S", "T", "Z"][self as usize]
     }
+
+    /// Try to convert back from a `u8`.
+    pub fn try_from(n: u8) -> Option<Shape> {
+        match n {
+            0 => Some(Shape::I),
+            1 => Some(Shape::J),
+            2 => Some(Shape::L),
+            3 => Some(Shape::O),
+            4 => Some(Shape::S),
+            5 => Some(Shape::T),
+            6 => Some(Shape::Z),
+            _ => None,
+        }
+    }
 }
 
 impl Rotation {
@@ -737,5 +751,16 @@ impl Rotation {
         ];
 
         CANONICAL[shape as usize][self as usize]
+    }
+
+    /// Try to convert back from a `u8`.
+    pub fn try_from(n: u8) -> Option<Rotation> {
+        match n {
+            0 => Some(Rotation::None),
+            1 => Some(Rotation::Clockwise),
+            2 => Some(Rotation::Half),
+            3 => Some(Rotation::CounterClockwise),
+            _ => None,
+        }
     }
 }

@@ -3,6 +3,7 @@ use std::{collections::HashSet, io::Cursor};
 use wasm_bindgen::prelude::wasm_bindgen;
 
 use basic::{
+    base64::{base64_decode, base64_encode},
     board_list,
     brokenboard::BrokenBoard,
     gameplay::{Board, Shape},
@@ -37,6 +38,8 @@ impl Solver {
 
         for board in &solutions {
             solver::print(&board, &mut str);
+            str.push('|');
+            base64_encode(&board.encode(), &mut str);
             str.push(',');
         }
 
@@ -92,4 +95,48 @@ fn parse_shape(shape: char) -> Option<Shape> {
 #[wasm_bindgen]
 extern "C" {
     pub fn progress(piece_count: usize, stage: usize, board_idx: usize, board_total: usize);
+}
+
+#[wasm_bindgen]
+pub fn solution_info(encoded: &str) -> String {
+    let mut ret = "".to_string();
+
+    let bits = match base64_decode(encoded) {
+        Some(b) => b,
+        None => return ret,
+    };
+
+    let board = match BrokenBoard::decode(&bits) {
+        Some(b) => b,
+        None => return ret,
+    };
+
+    let mut without_hold = board.supporting_queues();
+    without_hold.sort_unstable_by_key(|q| q.natural_order_key());
+
+    let with_hold = basic::queue::Queue::unhold_many(&without_hold);
+
+    solver::print(&board, &mut ret);
+
+    ret.push('|');
+
+    for &queue in &without_hold {
+        ret.push_str(&queue.to_string());
+        ret.push(',');
+    }
+    if !without_hold.is_empty() {
+        ret.pop();
+    }
+
+    ret.push('|');
+
+    for &queue in &with_hold {
+        ret.push_str(&queue.to_string());
+        ret.push(',');
+    }
+    if !with_hold.is_empty() {
+        ret.pop();
+    }
+
+    ret
 }
