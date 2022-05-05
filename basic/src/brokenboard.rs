@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use bitvec::prelude::*;
 use smallvec::SmallVec;
 
@@ -310,9 +312,11 @@ impl BrokenBoard {
             garbage ^= piece.board().0;
         }
 
-        let mut prev = vec![(BrokenBoard::from_garbage(garbage), Queue::empty())];
+        let mut prev = HashSet::new();
+        prev.insert((BrokenBoard::from_garbage(garbage), Queue::empty()));
+
         for _ in 0..self.pieces.len() {
-            let mut next = Vec::new();
+            let mut next = HashSet::new();
 
             for (board, queue) in prev {
                 let mut placeable: Vec<Piece> = self
@@ -335,9 +339,7 @@ impl BrokenBoard {
                         if placeable.contains(&canonical) {
                             let pair = (board.place(piece), queue.push_last(shape));
 
-                            if !next.contains(&pair) {
-                                next.push(pair);
-                            }
+                            next.insert(pair);
 
                             let index = placeable.iter().position(|p| p == &canonical).unwrap();
                             placeable.swap_remove(index);
