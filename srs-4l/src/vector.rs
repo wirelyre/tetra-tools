@@ -821,3 +821,16 @@ impl std::ops::BitOrAssign for PVec {
         *self = *self | rhs;
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /*
+    #[test]
+    fn all_pieces_can_spawn() {
+        // SPAWN_POS & mask != 0
+    }
+    */
+
+    /* failed on 137842098208 (I placements) */
+    /* failed on 275146604800 (I placements) */
+}
