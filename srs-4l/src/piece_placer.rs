@@ -1,6 +1,6 @@
 use bitvec::prelude::{bitvec, BitVec};
 
-use crate::gameplay::{Board, Piece, Shape};
+use crate::gameplay::{Board, Orientation, Piece, Shape};
 
 pub struct PiecePlacer {
     board: Board,
@@ -10,10 +10,32 @@ pub struct PiecePlacer {
 
 impl PiecePlacer {
     pub fn new(board: Board, shape: Shape) -> PiecePlacer {
-        let piece = Piece::new(shape);
-        let queue = vec![piece];
+        use Orientation::*;
+
+        let mut queue = Vec::new();
         let mut seen = bitvec![0; 0x4000];
 
+        // This initialization looks scary, but it's free.  We would see most of
+        // these pieces anyway.
+        //
+        // Note that every `piece` here is valid on the board.  They spawn at
+        // row 4, above the maximum allowed filled cells.
+        for orientation in [North, East, South, West] {
+            for col in 0..10 {
+                let piece = Piece {
+                    shape,
+                    col,
+                    row: 4,
+                    orientation,
+                };
+                if piece.in_bounds() {
+                    queue.push(piece);
+                    seen.set(piece.pack() as usize, true);
+                }
+            }
+        }
+
+        let piece = Piece::new(shape);
         seen.set(piece.pack() as usize, true);
 
         PiecePlacer { board, queue, seen }

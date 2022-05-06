@@ -471,7 +471,7 @@ impl Piece {
     }
 
     /// Check if a piece is valid (see [here](Piece#valid-pieces)).
-    fn in_bounds(self) -> bool {
+    pub fn in_bounds(self) -> bool {
         let max_col = PIECE_MAX_COLS[self.shape as usize][self.orientation as usize];
 
         (self.col >= 0) && (self.col <= max_col) && (self.row >= 0) && (self.row <= 5)
