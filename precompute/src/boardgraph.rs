@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use parking_lot::{Mutex, MutexGuard};
 use rayon::prelude::*;
 
-use basic::gameplay::Board;
+use srs_4l::gameplay::Board;
 
 // const LOW_BITS_MASK: u64 = 0b1111111111;
 const LOW_BITS_MASK: u64 = 0b1111111111_1111111111;

@@ -1,8 +1,8 @@
 use rayon::prelude::*;
 use smallvec::{smallvec, SmallVec};
 
-use basic::gameplay::Shape;
-use basic::piece_placer::PiecePlacer;
+use srs_4l::gameplay::Shape;
+use srs_4l::piece_placer::PiecePlacer;
 
 use super::Stage;
 

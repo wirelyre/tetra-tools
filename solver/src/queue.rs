@@ -1,6 +1,6 @@
 use smallvec::SmallVec;
 
-use basic::gameplay::Shape;
+use srs_4l::gameplay::Shape;
 
 #[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Bag {

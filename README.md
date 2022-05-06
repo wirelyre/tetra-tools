@@ -8,7 +8,7 @@ Tools and code libraries for tetromino stackers.
 
 ## Libraries
 
-- `basic`: 4-line bitboards, implementing SRS
+- `srs-4l`: 4-line bitboards, implementing SRS
 - `solver`: perfect clears using precomputed boards
 
 #### Why "gomen"?

@@ -1,7 +1,8 @@
 [workspace]
 
 members = [
-    "basic",
+    "srs-4l",
+
     "precompute",
     "solver",
 ]

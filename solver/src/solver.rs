@@ -4,7 +4,7 @@ use std::collections::{HashMap, HashSet};
 
 use smallvec::SmallVec;
 
-use basic::{
+use srs_4l::{
     brokenboard::BrokenBoard,
     gameplay::{Board, Shape},
     piece_placer::PiecePlacer,

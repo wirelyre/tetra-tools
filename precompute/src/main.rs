@@ -14,7 +14,7 @@ fn main() -> std::io::Result<()> {
 
     let writer = BufWriter::new(file);
 
-    basic::board_list::write(&boards, writer)?;
+    srs_4l::board_list::write(&boards, writer)?;
 
     Ok(())
 }

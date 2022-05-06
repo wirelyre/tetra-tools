@@ -3,7 +3,7 @@ use std::{collections::HashSet, io::Write, time::Duration};
 use rayon::prelude::*;
 use smallvec::SmallVec;
 
-use basic::{
+use srs_4l::{
     gameplay::{Board, Shape},
     piece_placer::PiecePlacer,
 };

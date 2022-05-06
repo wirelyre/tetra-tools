@@ -12,4 +12,4 @@ parking_lot = "0.11.1"
 rayon = "1.5.1"
 smallvec = { version = "1.6.1", features = ["union"] }
 
-basic = { path = "../basic" }
+srs-4l = { path = "../srs-4l" }

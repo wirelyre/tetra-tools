@@ -13,4 +13,4 @@ crate-type = ["cdylib"]
 smallvec = { version = "1.6.1", features = ["union"] }
 wasm-bindgen = "0.2.78"
 
-basic = { path = "../basic" }
+srs-4l = { path = "../srs-4l" }

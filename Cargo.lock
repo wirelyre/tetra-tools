@@ -9,15 +9,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 
 [[package]]
-name = "basic"
-version = "0.1.0"
-dependencies = [
- "bitvec",
- "leb128",
- "smallvec",
-]
-
-[[package]]
 name = "bitflags"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -229,12 +220,12 @@ dependencies = [
 name = "precompute"
 version = "0.1.0"
 dependencies = [
- "basic",
  "crossbeam",
  "num_cpus",
  "parking_lot",
  "rayon",
  "smallvec",
+ "srs-4l",
 ]
 
 [[package]]
@@ -311,9 +302,18 @@ checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 name = "solver"
 version = "0.1.0"
 dependencies = [
- "basic",
  "smallvec",
+ "srs-4l",
  "wasm-bindgen",
+]
+
+[[package]]
+name = "srs-4l"
+version = "0.1.0"
+dependencies = [
+ "bitvec",
+ "leb128",
+ "smallvec",
 ]
 
 [[package]]

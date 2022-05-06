@@ -2,7 +2,7 @@ use queue::Bag;
 use std::{collections::HashSet, io::Cursor};
 use wasm_bindgen::prelude::wasm_bindgen;
 
-use basic::{
+use srs_4l::{
     base64::{base64_decode, base64_encode},
     board_list,
     brokenboard::BrokenBoard,
@@ -114,7 +114,7 @@ pub fn solution_info(encoded: &str) -> String {
     let mut without_hold = board.supporting_queues();
     without_hold.sort_unstable_by_key(|q| q.natural_order_key());
 
-    let with_hold = basic::queue::Queue::unhold_many(&without_hold);
+    let with_hold = srs_4l::queue::Queue::unhold_many(&without_hold);
 
     solver::print(&board, &mut ret);
 
