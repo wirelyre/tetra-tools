@@ -1,4 +1,4 @@
-importScripts("./pkg/solver.js");
+importScripts("./pkg/gomen.js");
 
 function progress(piece_count, stage, board_idx, board_total) {
     let stage_progress = board_idx / board_total;
@@ -8,7 +8,7 @@ function progress(piece_count, stage, board_idx, board_total) {
 }
 
 async function main() {
-    await wasm_bindgen("./pkg/solver_bg.wasm");
+    await wasm_bindgen("./pkg/gomen_bg.wasm");
     let solver = new wasm_bindgen.Solver();
 
     console.log("ready");

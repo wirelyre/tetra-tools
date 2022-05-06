@@ -3,6 +3,6 @@
 members = [
     "srs-4l",
 
+    "gomen",
     "precompute",
-    "solver",
 ]

@@ -88,7 +88,7 @@
     </section>
 
     <script src="./mino-board.js"></script>
-    <script src="./pkg/solver.js"></script>
+    <script src="./pkg/gomen.js"></script>
     <script type="module">
 
         let header = document.getElementById("header");
@@ -97,7 +97,7 @@
         let with_hold = document.getElementById("with-hold");
 
         async function main() {
-            await wasm_bindgen("./pkg/solver_bg.wasm");
+            await wasm_bindgen("./pkg/gomen_bg.wasm");
 
             let id = window.location.search.slice(3);
             let info = wasm_bindgen.solution_info(id).split("|");

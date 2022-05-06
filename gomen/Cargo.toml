@@ -1,5 +1,5 @@
 [package]
-name = "solver"
+name = "gomen"
 version = "0.1.0"
 authors = ["wirelyre"]
 edition = "2018"

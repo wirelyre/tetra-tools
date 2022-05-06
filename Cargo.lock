@@ -119,6 +119,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 
 [[package]]
+name = "gomen"
+version = "0.1.0"
+dependencies = [
+ "smallvec",
+ "srs-4l",
+ "wasm-bindgen",
+]
+
+[[package]]
 name = "hermit-abi"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -297,15 +306,6 @@ name = "smallvec"
 version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
-
-[[package]]
-name = "solver"
-version = "0.1.0"
-dependencies = [
- "smallvec",
- "srs-4l",
- "wasm-bindgen",
-]
 
 [[package]]
 name = "srs-4l"
