@@ -13,12 +13,12 @@
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Board(pub u64);
 
-/// A piece, stored as [`shape`], coordinates, and [`rotation`].
+/// A piece, stored as [`shape`], coordinates, and [`orientation`].
 ///
 /// Coordinates are measured from the bottom left of the piece's bounding box.
 /// `col` increases to the right; `row` increases upwards.  This is different
 /// from typical coordinates, which often have space to the left or bottom in
-/// certain rotations.
+/// certain orientations.
 ///
 /// `row` can be larger than 3; this means that the piece is beyond the top of
 /// the bottom four rows of the board.
@@ -32,12 +32,12 @@ pub struct Board(pub u64);
 ///
 /// Valid pieces are completely in bounds: `col` and `row` are positive, despite
 /// being signed; and `col` is never so large that the piece would extend past
-/// the right edge of the board in the current rotation.
+/// the right edge of the board in the current orientation.
 ///
 /// The methods on this type will only produce valid pieces.
 ///
-/// [`shape`]:    Shape
-/// [`rotation`]: Rotation
+/// [`shape`]:       Shape
+/// [`orientation`]: Orientation
 ///
 /// # Rotation system
 ///
@@ -48,7 +48,7 @@ pub struct Board(pub u64);
 /// When a piece has to try more than one position before it succeeds, that's
 /// called a *kick*.  In SRS, five positions (the initial position plus four
 /// more) are tried.  Which positions are tried?  That depends on the piece, its
-/// current rotation, and the direction it's rotating.  See
+/// current orientation, and the direction it's rotating.  See
 /// [here](https://harddrop.com/wiki/SRS) for the details.
 ///
 /// However, the coordinate system here is different from usual, because
@@ -66,7 +66,7 @@ pub struct Piece {
     pub shape: Shape,
     pub col: i8,
     pub row: i8,
-    pub rotation: Rotation,
+    pub orientation: Orientation,
 }
 
 /// Each of the conventional single-letter names of tetrominoes.
@@ -89,19 +89,19 @@ pub enum Shape {
 /// The `u8` numeric representation is used as an index sometimes.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
-pub enum Rotation {
-    /// The initial rotation when a piece spawns &mdash; minoes tend to be above
+pub enum Orientation {
+    /// The initial orientation when a piece spawns &mdash; minoes tend to be
+    /// above a piece's center of rotation.
+    North,
+    /// One 90° clockwise rotation from spawn &mdash; minoes tend to be right of
     /// a piece's center of rotation.
-    None,
-    /// One 90-degree clockwise rotation &mdash; minoes tend to be right of a
+    East,
+    /// One 180° half rotation from spawn &mdash; minoes tend to be below a
     /// piece's center of rotation.
-    Clockwise,
-    /// One 180-degree half rotation &mdash; minoes tend to be below a piece's
-    /// center of rotation.
-    Half,
-    /// One 90-degree counter-clockwise rotation &mdash; minoes tend to be left
-    /// of a piece's center of rotation.
-    CounterClockwise,
+    South,
+    /// One 90° counter-clockwise rotation from spawn &mdash; minoes tend to be
+    /// left of a piece's center of rotation.
+    West,
 }
 
 impl Board {
@@ -282,7 +282,7 @@ impl Piece {
             shape,
             col: 0,
             row: 4,
-            rotation: Rotation::None,
+            orientation: Orientation::North,
         }
     }
 
@@ -290,11 +290,11 @@ impl Piece {
     ///
     /// The number returned will be strictly less than 0x4000 = 16384.
     pub fn pack(self) -> u16 {
-        // 0x3000 -> rotation (only 4 possibilities, so only 2 bits)
+        // 0x3000 -> orientation (only 4 possibilities, so only 2 bits)
         // 0x0F00 -> shape
         // 0x00F0 -> column
         // 0x000F -> row
-        ((self.rotation as u16) << 12)
+        ((self.orientation as u16) << 12)
             | ((self.shape as u16) << 8)
             | ((self.col as u16) << 4)
             | ((self.row as u16) << 0)
@@ -307,12 +307,12 @@ impl Piece {
     ///
     /// [`pack`]: Piece::pack
     pub fn unpack(val: u16) -> Piece {
-        let rotation = match (val & 0xF000) >> 12 {
-            0 => Rotation::None,
-            1 => Rotation::Clockwise,
-            2 => Rotation::Half,
-            3 => Rotation::CounterClockwise,
-            _ => unreachable!("invalid packed rotation"),
+        let orientation = match (val & 0xF000) >> 12 {
+            0 => Orientation::North,
+            1 => Orientation::East,
+            2 => Orientation::South,
+            3 => Orientation::West,
+            _ => unreachable!("invalid packed orientation"),
         };
         let kind = match (val & 0x0F00) >> 8 {
             0 => Shape::I,
@@ -331,7 +331,7 @@ impl Piece {
             shape: kind,
             col,
             row,
-            rotation,
+            orientation,
         };
         debug_assert!(val.in_bounds());
 
@@ -365,7 +365,7 @@ impl Piece {
     /// [`can_place`]: Piece::can_place
     fn as_bits(self) -> u64 {
         let shift = self.row * 10 + self.col;
-        PIECE_SHAPES[self.shape as usize][self.rotation as usize] << shift
+        PIECE_SHAPES[self.shape as usize][self.orientation as usize] << shift
     }
 
     /// Check whether a piece collides with any filled cells on the board.
@@ -448,7 +448,7 @@ impl Piece {
     pub fn right(self, board: Board) -> Piece {
         let mut new = self;
         new.col += 1;
-        let max_col = PIECE_MAX_COLS[self.shape as usize][self.rotation as usize];
+        let max_col = PIECE_MAX_COLS[self.shape as usize][self.orientation as usize];
 
         if (new.col > max_col) || new.collides_in(board) {
             self
@@ -472,7 +472,7 @@ impl Piece {
 
     /// Check if a piece is valid (see [here](Piece#valid-pieces)).
     fn in_bounds(self) -> bool {
-        let max_col = PIECE_MAX_COLS[self.shape as usize][self.rotation as usize];
+        let max_col = PIECE_MAX_COLS[self.shape as usize][self.orientation as usize];
 
         (self.col >= 0) && (self.col <= max_col) && (self.row >= 0) && (self.row <= 5)
     }
@@ -483,15 +483,15 @@ impl Piece {
     /// See [here](Piece#rotation-system) for more details.
     #[must_use]
     pub fn cw(self, board: Board) -> Piece {
-        let rotation = self.rotation.cw();
+        let orientation = self.orientation.cw();
 
-        let kicks = &KICKS[self.shape as usize][self.rotation as usize];
+        let kicks = &KICKS[self.shape as usize][self.orientation as usize];
         for (kick_col, kick_row) in kicks {
             let new = Piece {
                 shape: self.shape,
                 col: self.col + kick_col,
                 row: self.row + kick_row,
-                rotation: rotation,
+                orientation,
             };
 
             if new.in_bounds() && !new.collides_in(board) {
@@ -508,15 +508,15 @@ impl Piece {
     /// See [here](Piece#rotation-system) for more details.
     #[must_use]
     pub fn ccw(self, board: Board) -> Piece {
-        let rotation = self.rotation.ccw();
+        let orientation = self.orientation.ccw();
 
-        let kicks = &KICKS[self.shape as usize][rotation as usize];
+        let kicks = &KICKS[self.shape as usize][orientation as usize];
         for (kick_col, kick_row) in kicks {
             let new = Piece {
                 shape: self.shape,
                 col: self.col - kick_col,
                 row: self.row - kick_row,
-                rotation: rotation,
+                orientation,
             };
 
             if new.in_bounds() && !new.collides_in(board) {
@@ -528,16 +528,16 @@ impl Piece {
     }
 }
 
-/// The shape of each piece for each rotation, as a bit board.
+/// The shape of each piece for each orientation, as a bit board.
 ///
-/// Indexed first by piece [shape], then by [rotation].
+/// Indexed first by piece [shape], then by [orientation].
 ///
 /// These shapes always touch the bottom and left of the board, but not
 /// necessarily the bottom-left corner.  For example, the Z piece in the default
-/// rotation doesn't have a bottom-left corner (bit 0 is unset).
+/// orientation doesn't have a bottom-left corner (bit 0 is unset).
 ///
-/// [shape]:    Shape
-/// [rotation]: Rotation
+/// [shape]:       Shape
+/// [orientation]: Orientation
 pub static PIECE_SHAPES: [[u64; 4]; 7] = [
     [
         // I
@@ -590,15 +590,15 @@ pub static PIECE_SHAPES: [[u64; 4]; 7] = [
     ],
 ];
 
-/// The maximum allowed column for a piece of the given shape and rotation.
+/// The maximum allowed column for a piece of the given shape and orientation.
 ///
-/// Indexed first by piece [shape], then by [rotation].
+/// Indexed first by piece [shape], then by [orientation].
 ///
 /// A piece at this column will touch the right edge of the board, but still be
 /// in bounds.  If it were one column right, it would be out of bounds.
 ///
-/// [shape]:    Shape
-/// [rotation]: Rotation
+/// [shape]:       Shape
+/// [orientation]: Orientation
 static PIECE_MAX_COLS: [[i8; 4]; 7] = [
     [6, 9, 6, 9], /* I */
     [7, 8, 7, 8], /* J */
@@ -641,22 +641,23 @@ static I_KICKS: [[(i8, i8); 5]; 4] = [
 /// bunch of zeros.
 static O_KICKS: [[(i8, i8); 5]; 4] = [[(0, 0); 5]; 4];
 
-/// Kick data for every piece, in every rotation.
+/// Kick data for every piece, in every orientation.
 ///
 /// References [`I_KICKS`], [`JLSTZ_KICKS`], and [`O_KICKS`].
 ///
-/// Indexed first by piece [shape], then by [rotation], then finally by kick
+/// Indexed first by piece [shape], then by [orientation], then finally by kick
 /// number.
 ///
-/// To rotate a piece clockwise, index by shape and **starting** rotation, then
-/// **add** each kick `(column, row)` to the position and see if the piece fits.
+/// To rotate a piece clockwise, index by shape and **starting** orientation,
+/// then **add** each kick `(column, row)` to the position and see if the piece
+/// fits.
 ///
-/// To rotate a piece counter-clockwise, index by shape and **final** rotation,
-/// then **subtract** each kick `(column, row)` from the position and see if the
-/// piece fits.
+/// To rotate a piece counter-clockwise, index by shape and **final**
+/// orientation, then **subtract** each kick `(column, row)` from the position
+/// and see if the piece fits.
 ///
-/// [shape]:    Shape
-/// [rotation]: Rotation
+/// [shape]:       Shape
+/// [orientation]: Orientation
 static KICKS: [&[[(i8, i8); 5]; 4]; 7] = [
     &I_KICKS,     /* I */
     &JLSTZ_KICKS, /* J */
@@ -711,36 +712,38 @@ impl Shape {
     }
 }
 
-impl Rotation {
-    /// The rotation clockwise from the given one.
-    pub fn cw(self) -> Rotation {
+impl Orientation {
+    /// The orientation clockwise from the given one.
+    pub fn cw(self) -> Orientation {
+        use Orientation::*;
         match self {
-            Rotation::None => Rotation::Clockwise,
-            Rotation::Clockwise => Rotation::Half,
-            Rotation::Half => Rotation::CounterClockwise,
-            Rotation::CounterClockwise => Rotation::None,
+            North => East,
+            East => South,
+            South => West,
+            West => North,
         }
     }
 
-    /// The rotation counter-clockwise from the given one.
-    pub fn ccw(self) -> Rotation {
+    /// The orientation counter-clockwise from the given one.
+    pub fn ccw(self) -> Orientation {
+        use Orientation::*;
         match self {
-            Rotation::None => Rotation::CounterClockwise,
-            Rotation::Clockwise => Rotation::None,
-            Rotation::Half => Rotation::Clockwise,
-            Rotation::CounterClockwise => Rotation::Half,
+            North => West,
+            East => North,
+            South => East,
+            West => South,
         }
     }
 
-    /// A canonical rotation for the given shape, with respect to symmetry.
-    pub fn canonical(self, shape: Shape) -> Rotation {
-        use Rotation::*;
+    /// A canonical orientation for the given shape, with respect to symmetry.
+    pub fn canonical(self, shape: Shape) -> Orientation {
+        use Orientation::*;
 
-        const SYM_90: [Rotation; 4] = [None, None, None, None];
-        const SYM_180: [Rotation; 4] = [None, Clockwise, None, Clockwise];
-        const SYM_360: [Rotation; 4] = [None, Clockwise, Half, CounterClockwise];
+        const SYM_90: [Orientation; 4] = [North, North, North, North];
+        const SYM_180: [Orientation; 4] = [North, East, North, East];
+        const SYM_360: [Orientation; 4] = [North, East, South, West];
 
-        static CANONICAL: [[Rotation; 4]; 7] = [
+        static CANONICAL: [[Orientation; 4]; 7] = [
             SYM_180, // I
             SYM_360, // J
             SYM_360, // L
@@ -754,12 +757,13 @@ impl Rotation {
     }
 
     /// Try to convert back from a `u8`.
-    pub fn try_from(n: u8) -> Option<Rotation> {
+    pub fn try_from(n: u8) -> Option<Orientation> {
+        use Orientation::*;
         match n {
-            0 => Some(Rotation::None),
-            1 => Some(Rotation::Clockwise),
-            2 => Some(Rotation::Half),
-            3 => Some(Rotation::CounterClockwise),
+            0 => Some(North),
+            1 => Some(East),
+            2 => Some(South),
+            3 => Some(West),
             _ => None,
         }
     }

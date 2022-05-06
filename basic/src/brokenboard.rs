@@ -4,7 +4,7 @@ use bitvec::prelude::*;
 use smallvec::SmallVec;
 
 use crate::{
-    gameplay::{Board, Piece, Rotation, Shape},
+    gameplay::{Board, Orientation, Piece, Shape},
     piece_placer::PiecePlacer,
     queue::Queue,
 };
@@ -36,8 +36,8 @@ pub struct BrokenPiece {
     /// Index of the lowest cell filled by this piece.
     pub low_mino: u8,
     pub shape: Shape,
-    /// Canonical rotation of this piece.
-    pub rotation: Rotation,
+    /// Canonical orientation of this piece.
+    pub orientation: Orientation,
     /// Bit vector of which rows contain at least one of this piece's minoes.  A
     /// set bit indicates that the piece has a mino in the row; an unset bit
     /// indicates an empty row.
@@ -141,7 +141,7 @@ impl BrokenBoard {
         new.pieces.push(BrokenPiece {
             low_mino: low_mino as u8,
             shape: piece.shape,
-            rotation: piece.rotation.canonical(piece.shape),
+            orientation: piece.orientation.canonical(piece.shape),
             rows,
         });
         new.pieces.sort_unstable();
@@ -170,7 +170,7 @@ impl BrokenBoard {
         for piece in &self.pieces {
             bv.extend_from_bitslice(&piece.low_mino.view_bits::<Lsb0>()[..6]); // low_mino < 40
             bv.extend_from_bitslice(&(piece.shape as u8).view_bits::<Lsb0>()[..3]); // 7 shapes
-            bv.extend_from_bitslice(&(piece.rotation as u8).view_bits::<Lsb0>()[..2]); // 4 rotations
+            bv.extend_from_bitslice(&(piece.orientation as u8).view_bits::<Lsb0>()[..2]); // 4 orientations
             bv.extend_from_bitslice(&piece.rows.view_bits::<Lsb0>()[..4]); // 4 rows
         }
 
@@ -205,7 +205,7 @@ impl BrokenBoard {
             new.pieces.push(BrokenPiece {
                 low_mino: encoded[..6].load_le(),
                 shape: Shape::try_from(encoded[6..9].load_le())?,
-                rotation: Rotation::try_from(encoded[9..11].load_le())?,
+                orientation: Orientation::try_from(encoded[9..11].load_le())?,
                 rows: encoded[11..15].load_le(),
             });
 
@@ -276,7 +276,8 @@ impl BrokenBoard {
         }
 
         // offset of left bound of piece
-        let bump_col = crate::gameplay::PIECE_SHAPES[piece.shape as usize][piece.rotation as usize]
+        let bump_col = crate::gameplay::PIECE_SHAPES[piece.shape as usize]
+            [piece.orientation as usize]
             .trailing_zeros();
 
         // Which lines have been stashed at the bottom of the board?
@@ -288,7 +289,7 @@ impl BrokenBoard {
             shape: piece.shape,
             col: (piece.low_mino % 10) as i8 - bump_col as i8,
             row: (piece.low_mino / 10) as i8 + bump_row as i8,
-            rotation: piece.rotation,
+            orientation: piece.orientation,
         };
         if !p.can_place(self.board) {
             return None;
@@ -332,7 +333,7 @@ impl BrokenBoard {
 
                     for (piece, _) in PiecePlacer::new(board.board, shape) {
                         let canonical = Piece {
-                            rotation: piece.rotation.canonical(piece.shape),
+                            orientation: piece.orientation.canonical(piece.shape),
                             ..piece
                         };
 
@@ -365,7 +366,8 @@ impl BrokenPiece {
     /// The returned board is probably not contiguous, and is really only useful
     /// for locating the minoes.
     pub fn board(self) -> Board {
-        let connected = crate::gameplay::PIECE_SHAPES[self.shape as usize][self.rotation as usize];
+        let connected =
+            crate::gameplay::PIECE_SHAPES[self.shape as usize][self.orientation as usize];
         let mut connected = connected >> connected.trailing_zeros() << (self.low_mino % 10);
 
         let mut broken = 0;
