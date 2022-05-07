@@ -49,7 +49,7 @@ fn scan(
                 }
 
                 for (_, new_board) in Placements::place(old_board, shape).canonical() {
-                    if !legal_boards.contains(&new_board) {
+                    if !legal_boards.is_empty() && !legal_boards.contains(&new_board) {
                         continue;
                     }
 
@@ -81,7 +81,7 @@ fn scan(
             for shape in Shape::ALL {
                 if old_queues.iter().any(|queue| queue.hold() == Some(shape)) {
                     for (_, new_board) in Placements::place(old_board, shape).canonical() {
-                        if !legal_boards.contains(&new_board) {
+                        if !legal_boards.is_empty() && !legal_boards.contains(&new_board) {
                             continue;
                         }
 

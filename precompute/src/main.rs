@@ -10,7 +10,7 @@ fn main() -> std::io::Result<()> {
     let file = OpenOptions::new()
         .create_new(true)
         .write(true)
-        .open("simple-boards.leb128")?;
+        .open("legal-boards.leb128")?;
 
     let writer = BufWriter::new(file);
 

@@ -1,3 +1,4 @@
+use js_sys::Uint8Array;
 use queue::Bag;
 use std::{collections::HashSet, io::Cursor};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -20,20 +21,30 @@ pub struct Solver {
 #[wasm_bindgen]
 impl Solver {
     #[wasm_bindgen(constructor)]
-    pub fn init() -> Solver {
-        let contents = include_bytes!("../../simple-boards.leb128");
-
-        let boards: HashSet<Board> = board_list::read(Cursor::new(contents))
-            .unwrap()
-            .drain(..)
-            .collect();
+    pub fn init(legal_boards: Option<Uint8Array>) -> Solver {
+        let boards: HashSet<Board> = match legal_boards {
+            Some(arr) => board_list::read(Cursor::new(&arr.to_vec()))
+                .unwrap()
+                .drain(..)
+                .collect(),
+            None => Default::default(),
+        };
 
         Solver { boards }
     }
 
     pub fn solve(&self, queue: Queue, garbage: u64, can_hold: bool) -> String {
+        let empty_boards = Default::default();
+
         let start = BrokenBoard::from_garbage(garbage);
-        let solutions = solver::compute(&self.boards, &start, &queue.bags, can_hold);
+
+        let legal_boards = if self.is_fast(garbage) {
+            &self.boards
+        } else {
+            &empty_boards
+        };
+
+        let solutions = solver::compute(legal_boards, &start, &queue.bags, can_hold);
         let mut str = String::new();
 
         for board in &solutions {
@@ -47,7 +58,7 @@ impl Solver {
         str
     }
 
-    pub fn possible(&self, garbage: u64) -> bool {
+    pub fn is_fast(&self, garbage: u64) -> bool {
         self.boards
             .contains(&BrokenBoard::from_garbage(garbage).board)
     }

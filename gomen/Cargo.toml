@@ -10,6 +10,7 @@ edition = "2018"
 crate-type = ["cdylib"]
 
 [dependencies]
+js-sys = "0.3.57"
 smallvec = { version = "1.6.1", features = ["union"] }
 wasm-bindgen = "0.2.78"
 

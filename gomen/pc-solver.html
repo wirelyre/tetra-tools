@@ -89,9 +89,19 @@
             margin: .2rem 1rem;
         }
 
-        .errors {
+        .error {
             margin: .2rem;
             color: red;
+        }
+
+        #initial-info {
+            color: green;
+
+            font-family: sans-serif;
+            font-size: small;
+
+            justify-self: end;
+            align-self: end;
         }
 
         label {
@@ -129,7 +139,7 @@
         <h1>PC solver</h1>
 
         <div class="label">Initial field</div>
-        <div>
+        <div style="grid-row: span 2;">
             <div id="initial">
                 <input type="checkbox" id="cell30"> <input type="checkbox" id="cell31">
                 <input type="checkbox" id="cell32"> <input type="checkbox" id="cell33">
@@ -152,8 +162,8 @@
                 <input type="checkbox" id="cell6"> <input type="checkbox" id="cell7">
                 <input type="checkbox" id="cell8"> <input type="checkbox" id="cell9">
             </div>
-            <div id="initial-errors" class="errors"></div>
         </div>
+        <div id="initial-info"></div>
 
         <div>
             <div class="label">Queue</div>
@@ -167,7 +177,7 @@
         </div>
         <div style="display: grid">
             <input type="text" id="queue">
-            <div id="queue-errors" class="errors"></div>
+            <div id="queue-errors" class="error"></div>
         </div>
 
         <div class="label">Options</div>
@@ -187,7 +197,7 @@
         let worker = new Worker("worker.js");
         let work = null;
 
-        let initialErrors = document.getElementById("initial-errors");
+        let initialInfo = document.getElementById("initial-info");
         let queue = document.getElementById("queue");
         let queueErrors = document.getElementById("queue-errors");
         let hold = document.getElementById("hold");
@@ -208,15 +218,13 @@
                 return;
             }
 
-            if (message.data.kind == "impossible" && message.data.query.garbage == getGarbage()[0]) {
-                work = null;
-                initialErrors.innerText = "inital field has no solutions or is unreachable";
-                solutions.innerHTML = "";
-                solutions.classList.remove("loading");
-                hideProgress();
+            if (message.data.kind == "slow" && message.data.query.garbage == getGarbage()[0]) {
+                initialInfo.innerText = "";
                 return;
-            } else if (message.data.kind == "possible" && message.data.query.garbage == getGarbage()[0]) {
-                initialErrors.innerText = "";
+            }
+
+            if (message.data.kind == "fast" && message.data.query.garbage == getGarbage()[0]) {
+                initialInfo.innerText = "fast";
                 return;
             }
 
