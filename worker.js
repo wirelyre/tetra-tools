@@ -1,4 +1,4 @@
-importScripts("./pkg/solver.js");
+importScripts("./pkg/gomen.js");
 
 function progress(piece_count, stage, board_idx, board_total) {
     let stage_progress = board_idx / board_total;
@@ -8,8 +8,17 @@ function progress(piece_count, stage, board_idx, board_total) {
 }
 
 async function main() {
-    await wasm_bindgen("./pkg/solver_bg.wasm");
-    let solver = new wasm_bindgen.Solver();
+    let legal_boards;
+
+    let response = await fetch("./legal-boards.leb128");
+    if (response.ok) {
+        legal_boards = new Uint8Array(await response.arrayBuffer());
+    } else {
+        console.log("couldn't load legal boards");
+    }
+
+    await wasm_bindgen("./pkg/gomen_bg.wasm");
+    let solver = new wasm_bindgen.Solver(legal_boards);
 
     console.log("ready");
     postMessage({ kind: "ready" });
@@ -17,11 +26,10 @@ async function main() {
     onmessage = message => {
         let query = message.data;
 
-        if (!solver.possible(query.garbage)) {
-            postMessage({ kind: "impossible", query });
-            return;
+        if (solver.is_fast(query.garbage)) {
+            postMessage({ kind: "fast", query });
         } else {
-            postMessage({ kind: "possible", query });
+            postMessage({ kind: "slow", query });
         }
 
         let queue = new wasm_bindgen.Queue();
