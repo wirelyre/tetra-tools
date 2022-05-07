@@ -5,8 +5,8 @@ use smallvec::SmallVec;
 
 use crate::{
     gameplay::{Board, Orientation, Piece, Shape},
-    piece_placer::PiecePlacer,
     queue::Queue,
+    vector::Placements,
 };
 
 /// A [board] which keeps track of the individual [pieces] placed in it.
@@ -331,18 +331,13 @@ impl BrokenBoard {
                         continue;
                     }
 
-                    for (piece, _) in PiecePlacer::new(board.board, shape) {
-                        let canonical = Piece {
-                            orientation: piece.orientation.canonical(piece.shape),
-                            ..piece
-                        };
-
-                        if placeable.contains(&canonical) {
+                    for (piece, _) in Placements::place(board.board, shape).canonical() {
+                        if placeable.contains(&piece) {
                             let pair = (board.place(piece), queue.push_last(shape));
 
                             next.insert(pair);
 
-                            let index = placeable.iter().position(|p| p == &canonical).unwrap();
+                            let index = placeable.iter().position(|p| p == &piece).unwrap();
                             placeable.swap_remove(index);
 
                             if !placeable.iter().any(|p| p.shape == shape) {
