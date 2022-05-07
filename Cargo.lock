@@ -120,7 +120,7 @@ checksum = "1847abb9cb65d566acd5942e94aea9c8f547ad02c98e1649326fc0e8910b8b1e"
 
 [[package]]
 name = "gomen"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "js-sys",
  "smallvec",
