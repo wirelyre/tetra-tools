@@ -7,7 +7,7 @@ use smallvec::SmallVec;
 use srs_4l::{
     brokenboard::BrokenBoard,
     gameplay::{Board, Shape},
-    piece_placer::PiecePlacer,
+    vector::Placements,
 };
 
 use crate::queue::{Bag, QueueState};
@@ -48,7 +48,7 @@ fn scan(
                     continue;
                 }
 
-                for (_, new_board) in PiecePlacer::new(old_board, shape) {
+                for (_, new_board) in Placements::place(old_board, shape).canonical() {
                     if !legal_boards.contains(&new_board) {
                         continue;
                     }
@@ -80,7 +80,7 @@ fn scan(
 
             for shape in Shape::ALL {
                 if old_queues.iter().any(|queue| queue.hold() == Some(shape)) {
-                    for (_, new_board) in PiecePlacer::new(old_board, shape) {
+                    for (_, new_board) in Placements::place(old_board, shape).canonical() {
                         if !legal_boards.contains(&new_board) {
                             continue;
                         }
@@ -158,7 +158,7 @@ fn place(
                     continue;
                 }
 
-                for (piece, new_board) in PiecePlacer::new(old_board.board, shape) {
+                for (piece, new_board) in Placements::place(old_board.board, shape).canonical() {
                     if culled.contains(&new_board) {
                         let queues = next.entry(old_board.place(piece)).or_default();
                         for &queue in &new_queues {
@@ -184,7 +184,8 @@ fn place(
 
             for shape in Shape::ALL {
                 if old_queues.iter().any(|queue| queue.hold() == Some(shape)) {
-                    for (piece, new_board) in PiecePlacer::new(old_board.board, shape) {
+                    for (piece, new_board) in Placements::place(old_board.board, shape).canonical()
+                    {
                         if culled.contains(&new_board) {
                             next.insert(old_board.place(piece), SmallVec::new());
                         }
