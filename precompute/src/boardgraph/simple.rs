@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 
 use srs_4l::{
     gameplay::{Board, Shape},
-    piece_placer::PiecePlacer,
+    vector::Placements,
 };
 
 use super::Stage;
@@ -108,7 +108,7 @@ impl SimpleStage {
 
         self.0.lock_all().par_iter().for_each(|(&board, _preds)| {
             Shape::ALL.par_iter().for_each(|&shape| {
-                for (_, new_board) in PiecePlacer::new(board, shape) {
+                for (_, new_board) in Placements::place(board, shape).canonical() {
                     if new_board.has_isolated_cell() || new_board.has_imbalanced_split() {
                         continue;
                     }
@@ -158,7 +158,7 @@ impl SimpleStage {
             }
 
             for &shape in &Shape::ALL {
-                for (_, new_board) in PiecePlacer::new(board, shape) {
+                for (_, new_board) in Placements::place(board, shape).canonical() {
                     if target.get(new_board).is_some() {
                         new_stage.0.lock_subset(board).insert(board, preds.clone());
                         counter.increment();
