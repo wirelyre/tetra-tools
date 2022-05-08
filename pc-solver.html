@@ -372,10 +372,36 @@
 
         hold.addEventListener("input", (ev) => doSolve());
 
+        let dragState = null;
+
         for (let i = 0; i < 40; i++) {
-            document.getElementById("cell" + i)
-                .addEventListener("input", (ev) => doSolve());
+            let cell = document.getElementById("cell" + i);
+
+            cell.addEventListener("input", (ev) => doSolve());
+
+            cell.addEventListener("mousedown", (ev) => {
+                cell.checked = !cell.checked;
+                dragState = cell.checked;
+                ev.preventDefault();
+                doSolve();
+            });
+            cell.addEventListener("mouseenter", (ev) => {
+                if ((ev.buttons & 1) == 0) {
+                    dragState = null;
+                } else if (dragState != null) {
+                    cell.checked = dragState;
+                    doSolve();
+                }
+            });
+            cell.addEventListener("click", (ev) => ev.preventDefault());
         }
+
+        document.body.addEventListener("mousemove", (ev) => {
+            if ((ev.buttons & 1) == 0) {
+                dragState = null;
+            }
+
+        });
 
         doSolve();
 
