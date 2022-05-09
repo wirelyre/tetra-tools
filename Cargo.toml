@@ -2,7 +2,8 @@
 
 members = [
     "srs-4l",
+    "compute",
 
     "gomen",
-    "precompute",
+    "legal-boards",
 ]

@@ -1,11 +1,9 @@
-use std::fs::OpenOptions;
-use std::io::BufWriter;
+use std::{fs::OpenOptions, io::BufWriter};
 
 pub mod boardgraph;
-pub mod counter;
 
 fn main() -> std::io::Result<()> {
-    let boards = boardgraph::simple::compute();
+    let boards = boardgraph::compute();
 
     let file = OpenOptions::new()
         .create_new(true)

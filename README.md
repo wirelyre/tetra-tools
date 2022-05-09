@@ -4,11 +4,12 @@ Tools and code libraries for tetromino stackers.
 
 ## Tools
 - `gomen`: very basic web interface for perfect clear solutions
-- `precompute`: compute all possible 10-piece perfect clears
+- `legal-boards`: compute all possible 10-piece perfect clears
 
 ## Libraries
 
 - `srs-4l`: 4-line bitboards, implementing SRS
+- `compute`: multicore utility library
 
 #### Why "gomen"?
 
