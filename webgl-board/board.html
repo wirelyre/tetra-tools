@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>WebGL Board</title>
+
+    <script src="twgl/twgl-full.min.js"></script>
+
+</head>
+
+<body>
+
+    <canvas id="c" style="width: 400px; height: 400px; image-rendering: crisp-edges;"></canvas>
+
+    <script type="notjs" id="vs">
+#version 300 es
+
+uniform int u_idx;
+uniform lowp usampler2D u_board;
+
+in vec2 a_pos;
+in vec2 a_texCoord;
+
+out vec2 v_pos;
+out vec2 v_texCoord;
+
+uint getKind(int idx) {
+    return texelFetch(u_board, ivec2(idx, 0), 0).x;
+}
+
+uint getInfo(int idx) {
+    return texelFetch(u_board, ivec2(idx, 0), 0).y;
+}
+
+void main() {
+    // gl_InstanceID
+
+    uint kind = getKind(u_idx);
+    vec2 sprite = vec2(kind, 0);
+
+    v_texCoord = (a_texCoord + sprite) * vec2(20);
+    v_texCoord /= vec2(128, 32);
+    v_texCoord.y = 20.0 / 32.0 - v_texCoord.y;
+
+    v_pos = a_pos;
+    gl_Position = vec4(v_pos, 0, 1);
+}
+    </script>
+
+    <script type="notjs" id="fs">
+#version 300 es
+
+precision mediump float;
+
+uniform sampler2D u_tex;
+
+in vec2 v_pos;
+in vec2 v_texCoord;
+
+out vec4 color;
+
+void main() {
+    color = texture(u_tex, v_texCoord);
+}
+    </script>
+
+    <script>
+        /** @type {WebGL2RenderingContext} **/
+        const gl = document.getElementById("c").getContext("webgl2");
+        const programInfo = twgl.createProgramInfo(gl, ["vs", "fs"]);
+
+        gl.clearColor(0xF3 / 0xFF, 0xF3 / 0xFF, 0xED / 0xFF, 1);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+
+        const triangles = {
+            a_pos: {
+                numComponents: 2, data: [
+                    -0.5, -0.5, 0.5, -0.5, 0.5, 0.5,
+                    -0.5, -0.5, -0.5, 0.5, 0.5, 0.5,
+                ]
+            },
+            a_texCoord: {
+                numComponents: 2, data: [
+                    0, 0, 1, 0, 1, 1,
+                    0, 0, 0, 1, 1, 1,
+                ]
+            },
+        };
+        const bufferInfo = twgl.createBufferInfoFromArrays(gl, triangles);
+        console.log(bufferInfo);
+
+
+        const textures = twgl.createTextures(gl, {
+            atlas: {
+                src: "Atlas.png",
+                width: 128,
+                height: 32,
+                minMag: gl.NEAREST,
+            },
+
+            board: {
+                src: new Uint8Array([3, 0, 2, 0, 1, 0, 0, 0]),
+                height: 1,
+                format: gl.RG_INTEGER,
+                internalFormat: gl.RG8UI,
+                minMag: gl.NEAREST,
+            }
+        }, render);
+
+        const uniforms = {
+            u_tex: textures.atlas,
+            u_board: textures.board,
+            u_idx: 2,
+        };
+
+        function render() {
+            twgl.resizeCanvasToDisplaySize(gl.canvas, devicePixelRatio);
+            gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+            gl.useProgram(programInfo.program);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            twgl.setBuffersAndAttributes(gl, programInfo, bufferInfo);
+            twgl.setUniforms(programInfo, uniforms);
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, bufferInfo.numElements, /* instanceCount */ 1);
+        }
+    </script>
+
+</body>
+
+</html>

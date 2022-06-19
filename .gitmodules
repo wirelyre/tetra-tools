@@ -1,0 +1,3 @@
+[submodule "webgl-board/twgl.js"]
+	path = webgl-board/twgl.js
+	url = https://github.com/greggman/twgl.js
