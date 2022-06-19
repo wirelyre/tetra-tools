@@ -15,8 +15,11 @@
     <script type="notjs" id="vs">
 #version 300 es
 
-uniform int u_idx;
+#define WIDTH  2
+#define HEIGHT 2
+
 uniform lowp usampler2D u_board;
+uniform mat4 u_matrix;
 
 in vec2 a_pos;
 in vec2 a_texCoord;
@@ -32,18 +35,26 @@ uint getInfo(int idx) {
     return texelFetch(u_board, ivec2(idx, 0), 0).y;
 }
 
-void main() {
-    // gl_InstanceID
+void draw(int idx, int pass);
 
-    uint kind = getKind(u_idx);
+void main() {
+    int count = WIDTH * HEIGHT;
+    draw(gl_InstanceID % count, gl_InstanceID / count);
+}
+
+void draw(int idx, int pass) {
+    int col = idx % WIDTH;
+    int row = idx / WIDTH;
+
+    uint kind = getKind(idx);
     vec2 sprite = vec2(kind, 0);
 
     v_texCoord = (a_texCoord + sprite) * vec2(20);
     v_texCoord /= vec2(128, 32);
     v_texCoord.y = 20.0 / 32.0 - v_texCoord.y;
 
-    v_pos = a_pos;
-    gl_Position = vec4(v_pos, 0, 1);
+    v_pos = a_pos + vec2(col, row);
+    gl_Position = u_matrix * vec4(v_pos, 0, 1);
 }
     </script>
 
@@ -75,8 +86,8 @@ void main() {
         const triangles = {
             a_pos: {
                 numComponents: 2, data: [
-                    -0.5, -0.5, 0.5, -0.5, 0.5, 0.5,
-                    -0.5, -0.5, -0.5, 0.5, 0.5, 0.5,
+                    0, 0, 1, 0, 1, 1,
+                    0, 0, 0, 1, 1, 1,
                 ]
             },
             a_texCoord: {
@@ -99,7 +110,7 @@ void main() {
             },
 
             board: {
-                src: new Uint8Array([3, 0, 2, 0, 1, 0, 0, 0]),
+                src: new Uint8Array([3, 0, 2, 0, 1, 0, 3, 0]),
                 height: 1,
                 format: gl.RG_INTEGER,
                 internalFormat: gl.RG8UI,
@@ -110,7 +121,7 @@ void main() {
         const uniforms = {
             u_tex: textures.atlas,
             u_board: textures.board,
-            u_idx: 2,
+            u_matrix: twgl.m4.scale(twgl.m4.translation([-1, -1, 0]), [1 / 5, 1 / 5, 1]),
         };
 
         function render() {
@@ -122,7 +133,7 @@ void main() {
 
             twgl.setBuffersAndAttributes(gl, programInfo, bufferInfo);
             twgl.setUniforms(programInfo, uniforms);
-            gl.drawArraysInstanced(gl.TRIANGLES, 0, bufferInfo.numElements, /* instanceCount */ 1);
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, bufferInfo.numElements, /* instanceCount */ 4);
         }
     </script>
 
