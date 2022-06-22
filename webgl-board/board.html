@@ -10,13 +10,13 @@
 
 <body>
 
-    <canvas id="c" style="width: 400px; height: 400px; image-rendering: crisp-edges;"></canvas>
+    <canvas id="c" style="width: 200px; height: 180px; image-rendering: crisp-edges;"></canvas>
 
     <script type="notjs" id="vs">
 #version 300 es
 
-#define WIDTH  2
-#define HEIGHT 2
+#define WIDTH  10
+#define HEIGHT  9
 
 uniform lowp usampler2D u_board;
 uniform mat4 u_matrix;
@@ -46,15 +46,31 @@ void draw(int idx, int pass) {
     int col = idx % WIDTH;
     int row = idx / WIDTH;
 
-    uint kind = getKind(idx);
-    vec2 sprite = vec2(kind, 0);
+    if (pass == 0) {
+        if (getKind(idx) == uint(0)) {
+            // discard triangle
+            gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
+        } else {
+            // draw shadow
+            v_texCoord = a_pos * vec2(20);
+            v_texCoord.x = 177.0 + v_texCoord.x;
+            v_texCoord.y = 32.0 - v_texCoord.y;
+            v_texCoord /= vec2(256, 32);
 
-    v_texCoord = (a_texCoord + sprite) * vec2(20);
-    v_texCoord /= vec2(128, 32);
-    v_texCoord.y = 20.0 / 32.0 - v_texCoord.y;
+            v_pos = a_pos + vec2(col, row) + vec2(0.25, -7.0/20.0);
+            gl_Position = u_matrix * vec4(v_pos, 0, 1);
+        }
+    } else {
+        uint kind = getKind(idx);
+        vec2 sprite = vec2(min(kind, uint(9)), 0);
 
-    v_pos = a_pos + vec2(col, row);
-    gl_Position = u_matrix * vec4(v_pos, 0, 1);
+        v_texCoord = a_pos * vec2(21, 24) + sprite * vec2(22, 24);
+        v_texCoord.y = 32.0 - v_texCoord.y;
+        v_texCoord /= vec2(256, 32);
+
+        v_pos = a_pos * vec2(1, 24.0 / 20.0) + vec2(col, row);
+        gl_Position = u_matrix * vec4(v_pos, 0, 1);
+    }
 }
     </script>
 
@@ -82,6 +98,8 @@ void main() {
 
         gl.clearColor(0xF3 / 0xFF, 0xF3 / 0xFF, 0xED / 0xFF, 1);
         gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
         const triangles = {
             a_pos: {
@@ -103,14 +121,22 @@ void main() {
 
         const textures = twgl.createTextures(gl, {
             atlas: {
-                src: "Atlas.png",
-                width: 128,
+                src: "four.png",
+                width: 256,
                 height: 32,
                 minMag: gl.NEAREST,
             },
 
             board: {
-                src: new Uint8Array([3, 0, 2, 0, 1, 0, 3, 0]),
+                src: new Uint8Array([
+                    255, 0, 255, 0, 0, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0,
+                    255, 0, 255, 0, 0, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0,
+                    2, 0, 0, 0, 0, 0, 0, 0, 255, 0, 255, 0, 255, 0, 255, 0, 255, 0, 1, 0,
+                    2, 0, 0, 0, 0, 0, 0, 0, 255, 0, 255, 0, 255, 0, 4, 0, 4, 0, 1, 0,
+                    2, 0, 2, 0, 0, 0, 3, 0, 255, 0, 7, 0, 7, 0, 4, 0, 4, 0, 1, 0,
+                    0, 0, 0, 0, 0, 0, 3, 0, 7, 0, 7, 0, 0, 0, 5, 0, 5, 0, 1, 0,
+                    0, 0, 0, 0, 3, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 5, 0,
+                ]),
                 height: 1,
                 format: gl.RG_INTEGER,
                 internalFormat: gl.RG8UI,
@@ -121,7 +147,7 @@ void main() {
         const uniforms = {
             u_tex: textures.atlas,
             u_board: textures.board,
-            u_matrix: twgl.m4.scale(twgl.m4.translation([-1, -1, 0]), [1 / 5, 1 / 5, 1]),
+            u_matrix: twgl.m4.scale(twgl.m4.translation([-1, -1, 0]), [1 / 5, 2 / 9, 1]),
         };
 
         function render() {
@@ -133,7 +159,7 @@ void main() {
 
             twgl.setBuffersAndAttributes(gl, programInfo, bufferInfo);
             twgl.setUniforms(programInfo, uniforms);
-            gl.drawArraysInstanced(gl.TRIANGLES, 0, bufferInfo.numElements, /* instanceCount */ 4);
+            gl.drawArraysInstanced(gl.TRIANGLES, 0, bufferInfo.numElements, /* instanceCount */ 10 * 9 * 2);
         }
     </script>
 
