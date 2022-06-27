@@ -39,8 +39,10 @@ pub enum Orientation {
 #[wasm_bindgen]
 impl Game {
     pub fn init_srs(width: u8, height: u8, spawn_height: u8) -> Game {
+        let size = width as usize * height as usize * 2;
+
         Game {
-            field: vec![0; width as usize * height as usize * 2],
+            field: vec![0; size.next_power_of_two()],
             physics: parse(include_str!("../srs.json")).unwrap(),
             width,
             height,

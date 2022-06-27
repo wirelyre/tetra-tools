@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Prototype stacker</title>
+
+    <style type="text/css">
+        #controls input {
+            display: block;
+            width: 10rem;
+        }
+
+        #options {
+            display: grid;
+            grid-template-columns: 4rem 6rem;
+            align-items: center;
+        }
+
+        input:invalid {
+            border-color: red;
+        }
+
+        #c {
+            width: 200px;
+            height: 180px;
+            image-rendering: crisp-edges;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <h1>Prototype stacker</h1>
+
+    <div id="options">
+        <label for="width">Width</label> <input id="width" type="number" min="1" max="255" value="10">
+        <label for="height">Height</label> <input id="height" type="number" min="1" max="255" value="9">
+        <label for="queue">Queue</label> <input type="text" id="queue">
+    </div>
+
+    <canvas id="c"></canvas>
+
+    <div id="controls">
+        <h2>Controls</h2>
+        <input type="text" id="key_left" placeholder="left">
+        <input type="text" id="key_down" placeholder="down">
+        <input type="text" id="key_right" placeholder="right">
+        <input type="text" id="key_hard_drop" placeholder="hard drop">
+        <input type="text" id="key_ccw" placeholder="counterclockwise">
+        <input type="text" id="key_180" placeholder="180">
+        <input type="text" id="key_cw" placeholder="clockwise">
+    </div>
+
+    <script type="module">
+
+        import { Renderer } from "./render.js";
+        import init, { Game } from "./pkg/stacker.js";
+        await init();
+
+        let $ = (id) => document.getElementById(id);
+
+        let renderer = new Renderer($("c").getContext("webgl2"));
+
+        let game;
+        let piece;
+        let keys = new Map([
+            ["key_left", go_left], ["key_down", go_down], ["key_right", go_right],
+            ["key_hard_drop", go_hard_drop],
+            ["key_ccw", go_ccw], ["key_180", go_180], ["key_cw", go_cw]]);
+
+        async function setupCanvas() {
+            if (!$("width").checkValidity() || !$("height").checkValidity()) {
+                return;
+            }
+
+            let width = parseInt($("width").value, 10);
+            let height = parseInt($("height").value, 10);
+
+            game?.free();
+            piece?.free();
+
+            game = Game.init_srs(width, height, height - 1);
+            await renderer.init();
+            await renderer.draw(game.buffer());
+
+            await new Promise(resolve => window.setTimeout(resolve, 1000));
+            game.buffer()[0] = 1;
+            game.buffer()[2] = 3;
+            await renderer.draw(game.buffer());
+        }
+
+        setupCanvas();
+
+        document.body.addEventListener("keydown", (ev) => {
+            for (let id of keys.keys()) {
+                let el = document.getElementById(id);
+
+                if (el.value == ev.key) {
+                    if (piece) {
+                        keys.get(id)();
+                    }
+
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    return;
+                }
+            }
+        });
+
+        for (let id of keys.keys()) {
+            $(id).addEventListener("keydown", setBinding);
+        }
+
+        $("queue").addEventListener("input", (ev) => {
+            for (let i = 0; i < queue.value.length; i++) {
+                let val = queue.value[i];
+                if (val.toUpperCase() != val) {
+                    queue.setRangeText(queue.value[i].toUpperCase(), i, i + 1, "end");
+                }
+            }
+
+            spawn_piece();
+        });
+
+        function go_left() { game.move_left(piece); }
+        function go_down() { game.move_down(piece); }
+        function go_right() { game.move_right(piece); }
+        function go_hard_drop() { game.hard_drop(piece); }
+        function go_ccw() { game.rotate_ccw(piece); }
+        function go_180() { game.rotate_180(piece); }
+        function go_cw() { game.rotate_cw(piece); }
+
+        function spawn_piece() { }
+
+        function setBinding(ev) {
+            for (let id of keys.keys()) {
+                let el = $(id);
+                if (el.value == ev.key) {
+                    el.value = "";
+                }
+            }
+
+            ev.target.value = ev.key;
+
+            let next = ev.target.nextElementSibling;
+            if (next) {
+                next.focus();
+            } else {
+                ev.target.blur();
+            }
+
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+
+    </script>
+
+</body>
+
+</html>
