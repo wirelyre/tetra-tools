@@ -9,9 +9,23 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+console_error_panic_hook = "0.1.7"
 js-sys = "0.3.58"
 miniserde = "0.1.24"
+# nalgebra = "0.31.0"
 wasm-bindgen = "0.2.81"
+wasm-bindgen-futures = "0.4.31"
+web-sys = { version = "0.3.58", features = [
+    "HtmlCanvasElement",
+    "WebGl2RenderingContext",
+    "WebGlBuffer",
+    "WebGlProgram",
+    "WebGlShader",
+    "WebGlTexture",
+    "WebGlUniformLocation",
+    "WebGlVertexArrayObject",
+    "Window",
+] }
 wee_alloc = { version = "0.4.5", optional = true }
 
 [features]
