@@ -7,8 +7,10 @@ use wasm_bindgen::prelude::*;
 pub struct Game {
     field: Vec<u8>,
     physics: Vec<Physics>,
-    width: u8,
-    height: u8,
+    #[wasm_bindgen(readonly)]
+    pub width: u8,
+    #[wasm_bindgen(readonly)]
+    pub height: u8,
     spawn_height: u8,
 }
 
@@ -50,15 +52,6 @@ impl Game {
         self.field[2] = 4;
         self.field[6] = 7;
         self.field[8] = 255;
-    }
-
-    pub fn piece_minoes(&self, piece: &Piece) -> Vec<u8> {
-        let physics = &self.physics[piece.physics_idx];
-        let unshifted = &physics.minoes[piece.orientation as usize];
-        unshifted
-            .iter()
-            .flat_map(|(col, row)| [col + piece.col, row + piece.row])
-            .collect()
     }
 
     pub fn spawn(&self, shape: &str) -> Option<Piece> {
@@ -231,6 +224,22 @@ impl Game {
 impl Game {
     pub fn get_field(&self) -> &[u8] {
         &self.field
+    }
+}
+
+impl Piece {
+    pub fn minoes(&self, game: &Game) -> Vec<u8> {
+        let physics = &game.physics[self.physics_idx];
+        let unshifted = &physics.minoes[self.orientation as usize];
+        unshifted
+            .iter()
+            .flat_map(|(col, row)| [col + self.col, row + self.row])
+            .collect()
+    }
+
+    pub fn color(&self, game: &Game) -> u8 {
+        let physics = &game.physics[self.physics_idx];
+        physics.color
     }
 }
 

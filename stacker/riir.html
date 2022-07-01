@@ -29,16 +29,16 @@
         let $ = (id) => document.getElementById(id);
 
         let renderer = await new Renderer($("c").getContext("webgl2"));
-        console.log(renderer);
 
         let game = Game.init_srs(10, 9, 8);
         game.put_some_in();
 
         let piece = game.spawn("T");
-        piece.row -= 2;
+        if (piece) piece.row -= 2;
 
         // renderer.fix_pixel_size();
-        renderer.draw(game, piece);
+        renderer.drawField(game);
+        if (piece) renderer.drawPiece(game, piece);
 
     </script>
 
