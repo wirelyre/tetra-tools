@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Prototype stacker</title>
+
+    <style type="text/css">
+        body {
+            padding: 0 1rem;
+        }
+
+        #controls input {
+            display: block;
+            width: 10rem;
+        }
+
+        #options {
+            display: grid;
+            grid-template-columns: 4rem 6rem;
+            align-items: center;
+            padding-bottom: 1.5rem;
+        }
+
+        input:invalid {
+            border-color: red;
+        }
+
+        #c {
+            width: 200px;
+            height: 180px;
+            image-rendering: crisp-edges;
+        }
+    </style>
+
+</head>
+
+<body>
+
+    <h1>Prototype stacker</h1>
+
+    <div id="options">
+        <label for="width">Width</label> <input id="width" type="number" min="1" max="255" value="10">
+        <label for="height">Height</label> <input id="height" type="number" min="1" max="255" value="9">
+        <label for="queue">Queue</label> <input type="text" id="queue">
+    </div>
+
+    <canvas id="c"></canvas>
+
+    <div id="controls">
+        <h2>Controls</h2>
+        <input type="text" id="key_left" placeholder="left">
+        <input type="text" id="key_down" placeholder="down">
+        <input type="text" id="key_right" placeholder="right">
+        <input type="text" id="key_hard_drop" placeholder="hard drop">
+        <input type="text" id="key_ccw" placeholder="counterclockwise">
+        <input type="text" id="key_180" placeholder="180">
+        <input type="text" id="key_cw" placeholder="clockwise">
+    </div>
+
+    <script type="module">
+
+        import init, { Game, Renderer } from "./pkg/stacker.js";
+        await init();
+
+        let $ = (id) => document.getElementById(id);
+
+        let renderer = await new Renderer($("c").getContext("webgl2"));
+
+        let game;
+        let piece;
+        let keys = new Map([
+            ["key_left", () => game.move_left(piece)],
+            ["key_down", () => game.move_down(piece)],
+            ["key_right", () => game.move_right(piece)],
+            ["key_ccw", () => game.rotate_ccw(piece)],
+            ["key_180", () => game.rotate_180(piece)],
+            ["key_cw", () => game.rotate_cw(piece)],
+            ["key_hard_drop", () => {
+                game.hard_drop(piece);
+                $("queue").value = $("queue").value.slice(1);
+                piece = null;
+                spawn_piece();
+            }],
+        ]);
+
+        resize();
+        spawn_piece();
+        draw();
+
+        document.body.addEventListener("keydown", (ev) => {
+            for (let id of keys.keys()) {
+                let el = document.getElementById(id);
+
+                if (el.value == ev.key) {
+                    if (piece) {
+                        keys.get(id)();
+                    }
+                    draw();
+
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    return;
+                }
+            }
+        });
+
+        for (let id of keys.keys()) {
+            $(id).addEventListener("keydown", setBinding);
+        }
+
+        $("queue").addEventListener("input", (ev) => {
+            for (let i = 0; i < queue.value.length; i++) {
+                let val = queue.value[i];
+                if (val.toUpperCase() != val) {
+                    queue.setRangeText(queue.value[i].toUpperCase(), i, i + 1, "end");
+                }
+            }
+
+            spawn_piece();
+            draw();
+        });
+        $("queue").addEventListener("keydown", ev => ev.stopPropagation());
+
+        $("width").addEventListener("input", resize);
+        $("width").addEventListener("keydown", ev => ev.stopPropagation());
+        $("height").addEventListener("input", resize);
+        $("height").addEventListener("keydown", ev => ev.stopPropagation());
+
+        function spawn_piece() {
+            piece?.free(); piece = null;
+            piece = game.spawn($("queue").value[0] || "");
+        }
+
+        function draw() {
+            renderer.drawField(game);
+            if (piece) renderer.drawPiece(game, piece);
+        }
+
+        function resize() {
+            if (!$("width").checkValidity() || !$("height").checkValidity())
+                return;
+
+            let width = parseInt($("width").value, 10);
+            let height = parseInt($("height").value, 10);
+
+            if (isNaN(width) || isNaN(height)) return;
+
+            $("c").style.width = `${20 * width}px`;
+            $("c").style.height = `${20 * height}px`;
+            renderer.fix_pixel_size();
+
+            game?.free(); game = null;
+            piece?.free(); piece = null;
+
+            game = Game.init_srs(width, height, height - 1);
+            spawn_piece();
+            draw();
+        }
+
+        function setBinding(ev) {
+            for (let id of keys.keys()) {
+                let el = $(id);
+                if (el.value == ev.key) {
+                    el.value = "";
+                }
+            }
+
+            ev.target.value = ev.key;
+
+            let next = ev.target.nextElementSibling;
+            if (next) {
+                next.focus();
+            } else {
+                ev.target.blur();
+            }
+
+            ev.preventDefault();
+            ev.stopPropagation();
+        }
+
+    </script>
+
+</body>
+
+</html>
