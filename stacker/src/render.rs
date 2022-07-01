@@ -486,6 +486,7 @@ static FOUR_PIECE_FS: &str = r#"#version 300 es
     layout(location = 0) out vec4 color;
     void main() {
         color = texture(u_tex, v_texCoord);
+        color = min(color * vec4(1.3), vec4(1));
     }
 "#;
 

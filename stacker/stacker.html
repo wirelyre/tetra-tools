@@ -55,43 +55,33 @@
 
     <script type="module">
 
-        import { Renderer } from "./render.js";
-        import init, { Game } from "./pkg/stacker.js";
+        import init, { Game, Renderer } from "./pkg/stacker.js";
         await init();
 
         let $ = (id) => document.getElementById(id);
 
-        let renderer = new Renderer($("c").getContext("webgl2"));
+        let renderer = await new Renderer($("c").getContext("webgl2"));
 
         let game;
         let piece;
         let keys = new Map([
-            ["key_left", go_left], ["key_down", go_down], ["key_right", go_right],
-            ["key_hard_drop", go_hard_drop],
-            ["key_ccw", go_ccw], ["key_180", go_180], ["key_cw", go_cw]]);
+            ["key_left", () => game.move_left(piece)],
+            ["key_down", () => game.move_down(piece)],
+            ["key_right", () => game.move_right(piece)],
+            ["key_ccw", () => game.rotate_ccw(piece)],
+            ["key_180", () => game.rotate_180(piece)],
+            ["key_cw", () => game.rotate_cw(piece)],
+            ["key_hard_drop", () => {
+                game.hard_drop(piece);
+                $("queue").value = $("queue").value.slice(1);
+                piece = null;
+                spawn_piece();
+            }],
+        ]);
 
-        async function setupCanvas() {
-            if (!$("width").checkValidity() || !$("height").checkValidity()) {
-                return;
-            }
-
-            let width = parseInt($("width").value, 10);
-            let height = parseInt($("height").value, 10);
-
-            game?.free();
-            piece?.free();
-
-            game = Game.init_srs(width, height, height - 1);
-            await renderer.init();
-            await renderer.draw(game.buffer());
-
-            await new Promise(resolve => window.setTimeout(resolve, 1000));
-            game.buffer()[0] = 1;
-            game.buffer()[2] = 3;
-            await renderer.draw(game.buffer());
-        }
-
-        setupCanvas();
+        game = Game.init_srs(10, 9, 5);
+        spawn_piece();
+        draw();
 
         document.body.addEventListener("keydown", (ev) => {
             for (let id of keys.keys()) {
@@ -101,6 +91,7 @@
                     if (piece) {
                         keys.get(id)();
                     }
+                    draw();
 
                     ev.preventDefault();
                     ev.stopPropagation();
@@ -122,17 +113,19 @@
             }
 
             spawn_piece();
+            draw();
         });
+        $("queue").addEventListener("keydown", (ev) => ev.stopPropagation());
 
-        function go_left() { game.move_left(piece); }
-        function go_down() { game.move_down(piece); }
-        function go_right() { game.move_right(piece); }
-        function go_hard_drop() { game.hard_drop(piece); }
-        function go_ccw() { game.rotate_ccw(piece); }
-        function go_180() { game.rotate_180(piece); }
-        function go_cw() { game.rotate_cw(piece); }
+        function spawn_piece() {
+            piece?.free();
+            piece = game.spawn($("queue").value[0] || "");
+        }
 
-        function spawn_piece() { }
+        function draw() {
+            renderer.drawField(game);
+            if (piece) renderer.drawPiece(game, piece);
+        }
 
         function setBinding(ev) {
             for (let id of keys.keys()) {

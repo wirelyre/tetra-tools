@@ -90,7 +90,7 @@ impl Game {
             East | West => physics.height,
         };
         // TODO: overflow
-        if piece.col + oriented_width >= self.width {
+        if piece.col + oriented_width > self.width {
             // collides with right wall
             return true;
         }
@@ -126,8 +126,13 @@ impl Game {
     pub fn move_left(&self, piece: &mut Piece) -> bool {
         match piece.col.checked_sub(1) {
             Some(col) => {
-                piece.col = col;
-                true
+                let new = Piece { col, ..*piece };
+                if !self.collides(new) {
+                    *piece = new;
+                    true
+                } else {
+                    false
+                }
             }
             None => false,
         }
@@ -136,8 +141,13 @@ impl Game {
     pub fn move_right(&self, piece: &mut Piece) -> bool {
         match piece.col.checked_add(1) {
             Some(col) => {
-                piece.col = col;
-                true
+                let new = Piece { col, ..*piece };
+                if !self.collides(new) {
+                    *piece = new;
+                    true
+                } else {
+                    false
+                }
             }
             None => false,
         }
@@ -146,8 +156,13 @@ impl Game {
     pub fn move_down(&self, piece: &mut Piece) -> bool {
         match piece.row.checked_sub(1) {
             Some(row) => {
-                piece.row = row;
-                true
+                let new = Piece { row, ..*piece };
+                if !self.collides(new) {
+                    *piece = new;
+                    true
+                } else {
+                    false
+                }
             }
             None => false,
         }
