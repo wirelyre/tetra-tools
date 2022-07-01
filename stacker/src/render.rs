@@ -300,6 +300,16 @@ impl Renderer {
             .unwrap();
         let atlas = ctx.create_texture().unwrap();
         ctx.bind_texture(Ctx::TEXTURE_2D, Some(&atlas));
+        ctx.tex_parameteri(
+            Ctx::TEXTURE_2D,
+            Ctx::TEXTURE_WRAP_S,
+            Ctx::CLAMP_TO_EDGE as i32,
+        );
+        ctx.tex_parameteri(
+            Ctx::TEXTURE_2D,
+            Ctx::TEXTURE_WRAP_T,
+            Ctx::CLAMP_TO_EDGE as i32,
+        );
         ctx.tex_image_2d_with_i32_and_i32_and_i32_and_format_and_type_and_image_bitmap(
             Ctx::TEXTURE_2D,
             0,
@@ -419,7 +429,7 @@ static FOUR_FIELD_VS: &str = r#"#version 300 es
             uint kind = getKind(idx);
             vec2 sprite = vec2(min(kind, uint(9)), 0);
 
-            v_texCoord = a_pos * vec2(21, 24) + sprite * vec2(22, 24);
+            v_texCoord = a_pos * vec2(20, 24) + sprite * vec2(22, 24) + vec2(1, 0);
             v_texCoord.y = 32.0 - v_texCoord.y;
             v_texCoord /= vec2(256, 32);
 
@@ -450,7 +460,7 @@ static FOUR_PIECE_VS: &str = r#"#version 300 es
     void main() {
         gl_Position = u_matrix * vec4(a_pos + a_coords, 0, 1);
 
-        v_texCoord = a_pos * vec2(19, 19) + vec2(u_mino_color * uint(22), 0);
+        v_texCoord = a_pos * vec2(20, 20) + vec2(u_mino_color * uint(22), 0) + vec2(1, 1);
         v_texCoord.y = 32.0 - v_texCoord.y;
         v_texCoord /= vec2(256, 32);
     }
