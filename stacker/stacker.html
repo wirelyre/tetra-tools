@@ -79,7 +79,7 @@
             }],
         ]);
 
-        game = Game.init_srs(10, 9, 5);
+        resize();
         spawn_piece();
         draw();
 
@@ -115,16 +115,42 @@
             spawn_piece();
             draw();
         });
-        $("queue").addEventListener("keydown", (ev) => ev.stopPropagation());
+        $("queue").addEventListener("keydown", ev => ev.stopPropagation());
+
+        $("width").addEventListener("input", resize);
+        $("width").addEventListener("keydown", ev => ev.stopPropagation());
+        $("height").addEventListener("input", resize);
+        $("height").addEventListener("keydown", ev => ev.stopPropagation());
 
         function spawn_piece() {
-            piece?.free();
+            piece?.free(); piece = null;
             piece = game.spawn($("queue").value[0] || "");
         }
 
         function draw() {
             renderer.drawField(game);
             if (piece) renderer.drawPiece(game, piece);
+        }
+
+        function resize() {
+            if (!$("width").checkValidity() || !$("height").checkValidity())
+                return;
+
+            let width = parseInt($("width").value, 10);
+            let height = parseInt($("height").value, 10);
+
+            if (isNaN(width) || isNaN(height)) return;
+
+            $("c").style.width = `${20 * width}px`;
+            $("c").style.height = `${20 * height}px`;
+            renderer.fix_pixel_size();
+
+            game?.free(); game = null;
+            piece?.free(); piece = null;
+
+            game = Game.init_srs(width, height, height - 1);
+            spawn_piece();
+            draw();
         }
 
         function setBinding(ev) {

@@ -328,24 +328,7 @@ impl Renderer {
             .clear_color(243. / 255., 243. / 255., 237. / 255., 1.0);
         self.ctx.clear(Ctx::COLOR_BUFFER_BIT);
 
-        let u_matrix = [
-            1. / 5.,
-            0.,
-            0.,
-            0.,
-            0.,
-            2. / 9.,
-            0.,
-            0.,
-            0.,
-            0.,
-            1.,
-            0.,
-            -1.,
-            -1.,
-            0.,
-            1.,
-        ];
+        let u_matrix = Self::get_matrix(game.width, game.height);
         self.field.render(
             &self.ctx,
             game.get_field(),
@@ -358,24 +341,7 @@ impl Renderer {
 
     #[wasm_bindgen(js_name = drawPiece)]
     pub fn draw_piece(&mut self, game: &Game, piece: &Piece) {
-        let u_matrix = [
-            1. / 5.,
-            0.,
-            0.,
-            0.,
-            0.,
-            2. / 9.,
-            0.,
-            0.,
-            0.,
-            0.,
-            1.,
-            0.,
-            -1.,
-            -1.,
-            0.,
-            1.,
-        ];
+        let u_matrix = Self::get_matrix(game.width, game.height);
         self.piece
             .render(&self.ctx, game, piece, &u_matrix, &self.atlas);
     }
@@ -393,6 +359,16 @@ impl Renderer {
         let height = canvas.client_height() as f64 * multiplier;
         canvas.set_width(width as u32);
         canvas.set_height(height as u32);
+        self.ctx.viewport(0, 0, width as i32, height as i32);
+    }
+
+    fn get_matrix(width: u8, height: u8) -> [f32; 16] {
+        let w_scale = 2. / (width as f32);
+        let h_scale = 2. / (height as f32);
+
+        [
+            w_scale, 0., 0., 0., 0., h_scale, 0., 0., 0., 0., 1., 0., -1., -1., 0., 1.,
+        ]
     }
 }
 
