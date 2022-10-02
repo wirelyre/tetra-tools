@@ -11,6 +11,8 @@ crate-type = ["cdylib"]
 
 [dependencies]
 js-sys = "0.3.57"
+fumen = "0.1.2"
+miniserde = "0.1.27"
 smallvec = { version = "1.6.1", features = ["union"] }
 wasm-bindgen = "0.2.78"
 

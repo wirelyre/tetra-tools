@@ -1,4 +1,5 @@
 use js_sys::Uint8Array;
+use miniserde::{json, Serialize};
 use queue::Bag;
 use std::{collections::HashSet, io::Cursor};
 use wasm_bindgen::prelude::wasm_bindgen;
@@ -150,4 +151,38 @@ pub fn solution_info(encoded: &str) -> String {
     }
 
     ret
+}
+
+#[wasm_bindgen]
+pub fn decode_fumen(encoded: &str) -> String {
+    #[derive(Default, Serialize)]
+    struct Decoded {
+        field: u64,
+        comment: Option<String>,
+    }
+
+    fn inner(encoded: &str) -> Option<Decoded> {
+        use fumen::{CellColor, Fumen, Page};
+
+        let fumen = Fumen::decode(encoded).ok()?;
+        let page: &Page = fumen.pages.get(0)?;
+
+        if page.field[4..] != [[CellColor::Empty; 10]; 19]
+            || page.garbage_row != [CellColor::Empty; 10]
+        {
+            return None;
+        }
+
+        let mut field = 0;
+        for idx in 0..40 {
+            let cell: CellColor = page.field[idx / 10][idx % 10];
+            let filled = cell != CellColor::Empty;
+            field |= (filled as u64) << idx;
+        }
+
+        let comment = page.comment.clone();
+        Some(Decoded { field, comment })
+    }
+
+    json::to_string(&inner(encoded))
 }

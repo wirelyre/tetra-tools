@@ -193,6 +193,8 @@
 
     <div id="solutions"></div>
 
+    <script src="./pkg/gomen.js"></script>
+
     <script type="module">
         let worker = new Worker("worker.js");
         let work = null;
@@ -306,6 +308,14 @@
             return [garbage, garbageCount];
         }
 
+        function setGarbage(garbage) {
+            for (let i = 0n; i < 40n; i++) {
+                let cell = document.getElementById("cell" + i);
+                let isChecked = (garbage & (1n << i)) != 0n;
+                cell.checked = isChecked;
+            }
+        }
+
         function doSolve() {
             let whole = /^([ILJOSTZ]|(\[[ILJOSTZ]+\]|\*)\d*)*$/;
             if (!whole.test(queue.value)) {
@@ -402,6 +412,30 @@
             }
 
         });
+
+        async function parseURL() {
+            let params = new URLSearchParams(location.search);
+
+            if (params.has("fumen")) {
+                await wasm_bindgen("./pkg/gomen_bg.wasm");
+
+                let decoded = JSON.parse(wasm_bindgen.decode_fumen(params.get("fumen")));
+                if (decoded == null) {
+                    console.error("provided invalid fumen in URL");
+                    return;
+                }
+
+                setGarbage(BigInt(decoded.field));
+
+                let queueCheck = /^([ILJOSTZ]|(\[[ILJOSTZ]+\]|\*)\d*)*$/;
+                if (decoded.comment != null && queueCheck.test(decoded.comment)) {
+                    queue.value = decoded.comment;
+                }
+
+                doSolve();
+            }
+        }
+        parseURL();
 
         doSolve();
 
