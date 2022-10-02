@@ -6,6 +6,6 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-bitvec = "0.22.3"
-leb128 = "0.2.4"
-smallvec = { version = "1.6.1", features = ["union"] }
+bitvec = "1"
+leb128 = "0.2.5"
+smallvec = { version = "1.9.0", features = ["union"] }

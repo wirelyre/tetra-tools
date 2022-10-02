@@ -6,10 +6,10 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-crossbeam = "0.8.1"
+crossbeam = "0.8.2"
 nohash = "0.2.0"
-rayon = "1.5.1"
-smallvec = { version = "1.6.1", features = ["union"] }
+rayon = "1.5.3"
+smallvec = { version = "1.9.0", features = ["union"] }
 
 srs-4l = { path = "../srs-4l" }
 compute = { path = "../compute" }
