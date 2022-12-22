@@ -250,14 +250,6 @@
             }
 
             showSolutions(message.data.solutions, 50);
-            let count = message.data.solutions.length;
-
-            if (count > 50) {
-                let button = document.createElement("button");
-                button.innerText = `And ${count - 50} more...`;
-                button.onclick = () => showSolutions(message.data.solutions, count);
-                solutions.appendChild(button);
-            }
         }
 
         function hideProgress() {
@@ -272,25 +264,25 @@
             }, 1000);
         }
 
-        function showSolutions(solns, count) {
+        function showSolutions(solns, prerenderCount) {
             if (solns.length == 0) {
                 solutions.innerText = "no solutions";
             } else {
                 solutions.innerHTML = "";
             }
 
+            let count = 0;
             for (const soln of solns) {
-                if (count == 0) { break; }
-                count--;
-
                 let [cells, id] = soln.split("|");
 
                 let link = document.createElement("a");
                 link.href = "./solution-info.html?s=" + id;
                 link.target = "_blank";
 
-                link.appendChild(new MinoBoard(cells));
+                link.appendChild(new MinoBoard(cells, count < prerenderCount));
                 solutions.appendChild(link);
+
+                count++;
             }
         }
 

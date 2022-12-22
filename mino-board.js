@@ -29,18 +29,20 @@ class MinoBoard extends HTMLElement {
     static minoRegex = /[GIJLOSTZ_]/g;
     static whitespace = /^\s*$/;
 
-    constructor(field) {
+    static observer = new IntersectionObserver(MinoBoard.observerCallback);
+
+    constructor(field, delay) {
         super();
 
         if (field) {
-            this.setup(field);
+            this.setup(field, delay);
         } else {
             document.addEventListener('DOMContentLoaded',
-                (_event) => this.setup(this.textContent));
+                (_event) => this.setup(this.textContent, delay));
         }
     }
 
-    setup(field) {
+    setup(field, delay) {
         this.innerHTML = '';
 
         if (!MinoBoard.boardRegex.test(field)) {
@@ -83,7 +85,25 @@ class MinoBoard extends HTMLElement {
         svg.setAttribute('height', height);
         svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
         this.appendChild(svg);
+        this.svg = svg;
 
+        if (delay) {
+            MinoBoard.observer.observe(this);
+        } else {
+            this.draw();
+        }
+    }
+
+    static observerCallback(entries) {
+        for (let entry of entries) {
+            if (entry.isIntersecting) {
+                MinoBoard.observer.unobserve(entry.target);
+                entry.target.draw();
+            }
+        }
+    }
+
+    draw() {
         const getMino = (field, row, col) => field[row]?.charAt(col);
 
         function* minos(field) {
@@ -108,20 +128,20 @@ class MinoBoard extends HTMLElement {
             return rect;
         }
 
-        svg.appendChild(rect(0, 0, '100%', '100%', MinoBoard.colors['background']));
+        this.svg.appendChild(rect(0, 0, '100%', '100%', MinoBoard.colors['background']));
 
         for (const [row, col, mino] of minos(this.field)) {
             const color = MinoBoard.colors['top'][mino];
 
-            svg.appendChild(rect(20 * col + 5, 20 * (row + 2) + 7, 20, 20,
+            this.svg.appendChild(rect(20 * col + 5, 20 * (row + 2) + 7, 20, 20,
                 MinoBoard.colors['shadow']));
 
-            svg.appendChild(rect(20 * col, 20 * (row + 2) - 4, 20, 4, color));
+            this.svg.appendChild(rect(20 * col, 20 * (row + 2) - 4, 20, 4, color));
         }
 
         for (const [row, col, mino] of minos(this.field)) {
             const color = MinoBoard.colors['regular'][mino];
-            svg.appendChild(rect(20 * col, 20 * (row + 2), 20, 20, color));
+            this.svg.appendChild(rect(20 * col, 20 * (row + 2), 20, 20, color));
         }
     }
 
