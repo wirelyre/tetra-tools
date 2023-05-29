@@ -1,0 +1,11 @@
+[package]
+name = "srs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+miniserde = "0.1.28"
+
+rhai = "1.11.0"
