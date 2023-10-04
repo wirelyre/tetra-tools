@@ -1,7 +1,7 @@
-//! Vector implementation of 4-line [SRS](https://harddrop.com/wiki/SRS).
-//! Computes all piece placements in parallel.
+//! Vector implementation of 4-line [SRS](https://harddrop.com/wiki/SRS) and two
+//! half-rotation extensions.  Computes all piece placements in parallel.
 //!
-//! The core item is [`Placements`], which performs the SRS search when
+//! The core item is [`Placements`], which performs the search when
 //! constructed, and then acts as an iterator over possible pieces.
 //!
 //! ## How
@@ -14,7 +14,7 @@
 //! 1. **Viable** positions: Positions where a piece could be placed if it were
 //!    teleported there.
 //! 2. **Reachable** positions: Positions where a piece can be placed by a
-//!    sequence of SRS movements.
+//!    sequence of movements.
 //!
 //! The first is easy.  A position is **viable** if, when a piece is placed
 //! there, none of the minoes would overlap with filled cells.  Viable positions
@@ -28,8 +28,8 @@
 //! complex.
 //!
 //! This module uses position vectors, [`PVec`], which represent many positions
-//! simultaneously.  Each SRS movement is applied to every reachable position in
-//! the vector to produce a new set of reachable positions.  The new set
+//! simultaneously.  Each piece movement is applied to every reachable position
+//! in the vector to produce a new set of reachable positions.  The new set
 //! contains the old set --- a reachable position vector represents *all known
 //! reachable positions*, not just newly discovered positions.
 //!
@@ -91,7 +91,7 @@
 //! [`gameplay`]:     crate::gameplay
 //! [`piece_placer`]: crate::piece_placer
 
-use crate::gameplay::{Board, Orientation, Piece, Shape};
+use crate::gameplay::{Board, Orientation, Physics, Piece, Shape};
 
 /// Vector of positions on a board.
 ///
@@ -141,10 +141,26 @@ impl Placements {
     /// placeable positions and returns them.
     ///
     /// See [`PlacementMachine`] for details.
-    pub fn place(board: Board, shape: Shape) -> Self {
+    pub fn place(board: Board, shape: Shape, physics: Physics) -> Self {
         use Orientation::*;
 
         let collision = &COLLISION[shape as usize];
+
+        if shape == Shape::O {
+            // Shortcut for O.
+            // - An O piece can never move upwards (no up-kicks)
+            // - All O orientations are completely identical
+
+            let viable = collision[0].viable(board);
+            let reachable = (SPAWN & viable).flood_fill(viable);
+            let placeable = collision[0].placeable(reachable);
+
+            return Placements {
+                shape,
+                board,
+                positions: [placeable; 4],
+            };
+        }
 
         let viable = [
             collision[0].viable(board),
@@ -163,6 +179,7 @@ impl Placements {
             reachable,
             dirty: [true; 4],
             shape,
+            physics,
         };
 
         while machine.any_dirty() {
@@ -232,6 +249,8 @@ impl Placements {
 pub struct PlacementMachine {
     /// Shape of the pieces being placed.  **Constant** during iteration.
     shape: Shape,
+    /// Physics for half rotations.  **Constant** during iteration.
+    physics: Physics,
     /// Set of viable positions, indexed by orientation.  **Constant** during iteration.
     viable: [PVec; 4],
     /// Set of reachable positions, indexed by orientation.  **Variable** during iteration.
@@ -248,35 +267,54 @@ impl PlacementMachine {
     }
 
     /// Visit a single orientation.  If dirty, [flood fills] the reachable
-    /// positions, then computes [kicks] in both directions.  If new reachable
+    /// positions, then computes [kicks] in all directions.  If new reachable
     /// positions are discovered during kicks, those other orientations are
     /// marked dirty.
     ///
+    /// Half rotations here optimistically use the same kicks for all shapes,
+    /// which is incorrect for O.  O placements are handled [elsewhere].
+    ///
     /// [flood fills]: PVec::flood_fill
     /// [kicks]:       Kicks
+    /// [elsewhere]:   Placements::place
     fn step(&mut self, o: Orientation) {
-        let ccw = o.ccw() as usize;
-        let this = o as usize;
-        let cw = o.cw() as usize;
+        let o_0 = o as usize;
+        let o_90 = o.cw() as usize;
+        let o_180 = o.half() as usize;
+        let o_270 = o.ccw() as usize;
 
         let kicks = KICKS[self.shape as usize];
 
-        if self.dirty[this] {
-            self.reachable[this] = self.reachable[this].flood_fill(self.viable[this]);
+        if self.dirty[o_0] {
+            self.reachable[o_0] = self.reachable[o_0].flood_fill(self.viable[o_0]);
 
-            let cw_more = kicks[this].kick_cw(self.reachable[this], self.viable[cw]);
-            if (self.reachable[cw] & cw_more) != cw_more {
-                self.reachable[cw] |= cw_more;
-                self.dirty[cw] = true;
+            let more_90 = kicks[o_0].kick(self.reachable[o_0], self.viable[o_90]);
+            if (self.reachable[o_90] & more_90) != more_90 {
+                self.reachable[o_90] |= more_90;
+                self.dirty[o_90] = true;
             }
 
-            let ccw_more = kicks[ccw].kick_ccw(self.reachable[this], self.viable[ccw]);
-            if (self.reachable[ccw] & ccw_more) != ccw_more {
-                self.reachable[ccw] |= ccw_more;
-                self.dirty[ccw] = true;
+            let more_180 = match self.physics {
+                Physics::SRS => PVec(0), // SRS has no half rotations!
+                Physics::Jstris => {
+                    KICKS_JSTRIS_180[o_0].kick(self.reachable[o_0], self.viable[o_180])
+                }
+                Physics::Tetrio => {
+                    KICKS_TETRIO_180[o_0].kick(self.reachable[o_0], self.viable[o_180])
+                }
+            };
+            if (self.reachable[o_180] & more_180) != more_180 {
+                self.reachable[o_180] |= more_180;
+                self.dirty[o_180] = true;
             }
 
-            self.dirty[this] = false;
+            let more_270 = kicks[o_270].kick_inv(self.reachable[o_0], self.viable[o_270]);
+            if (self.reachable[o_270] & more_270) != more_270 {
+                self.reachable[o_270] |= more_270;
+                self.dirty[o_270] = true;
+            }
+
+            self.dirty[o_0] = false;
         }
     }
 
@@ -493,8 +531,8 @@ pub struct Collision {
 
 /// Kick data for one piece shape, in one orientation.
 ///
-/// The SRS kick algorithm tries five positions during any piece rotation.  The
-/// first to succeed, if any, is used.
+/// The SRS kick algorithm and its variants try five positions during any piece
+/// rotation.  The first to succeed, if any, is used.
 ///
 /// Since we deal with multiple positions at once, we can't really stop for a
 /// successful kick.  Instead, we always do *all* kicks.  For each kick, we find
@@ -514,9 +552,9 @@ pub struct Collision {
 /// left by 10 bits.  A shift one row downwards is performed as a rotate left by
 /// 64&nbsp;&minus;&nbsp;10&nbsp;=&nbsp;54 bits.  Rotating right with the same
 /// numbers reverses both operations without any extra calculation.
-pub struct Kicks {
-    rotates: [u8; 5],
-    masks: [u64; 5],
+pub struct Kicks<const N: usize = 5> {
+    rotates: [u8; N],
+    masks: [u64; N],
 }
 
 /// Collision data for every tetromino.
@@ -574,7 +612,7 @@ pub static COLLISION: [[Collision; 4]; 7] = [
     ],
 ];
 
-/// Kick data for every tetromino.
+/// Quarter-rotation kick data for every tetromino.
 ///
 /// Indexed first by piece [shape](Shape), then by [orientation](Orientation).
 ///
@@ -609,6 +647,26 @@ static O_KICKS: [Kicks; 4] = [
     Kicks::make([(0, 0); 5]),
     Kicks::make([(0, 0); 5]),
     Kicks::make([(0, 0); 5]),
+];
+
+/// Half-rotation kick data for Jstris, indexed by initial orientation.
+///
+/// All pieces except for O use the same 180º kick table.
+pub static KICKS_JSTRIS_180: [Kicks<2>; 4] = [
+    Kicks::make([(0, -1), (0, 0)]),
+    Kicks::make([(-1, 0), (0, 0)]),
+    Kicks::make([(0, 1), (0, 0)]),
+    Kicks::make([(1, 0), (0, 0)]),
+];
+
+/// Half-rotation kick data for TETRIO, indexed by initial orientation.
+///
+/// All pieces except for O use the same 180º kick table.
+pub static KICKS_TETRIO_180: [Kicks<6>; 4] = [
+    Kicks::make([(0, -1), (0, 0), (1, 0), (-1, 0), (1, -1), (-1, -1)]),
+    Kicks::make([(-1, 0), (0, 0), (0, 2), (0, 1), (-1, 2), (-1, 1)]),
+    Kicks::make([(0, 1), (0, 0), (-1, 0), (1, 0), (-1, 1), (1, 1)]),
+    Kicks::make([(1, 0), (0, 0), (0, 2), (0, 1), (1, 2), (1, 1)]),
 ];
 
 impl Collision {
@@ -663,14 +721,14 @@ impl Collision {
     }
 }
 
-impl Kicks {
+impl<const N: usize> Kicks<N> {
     /// Compute kick data for a single shape and orientation from the given kick
     /// offsets.  The offsets are specified by `(column, row)`, and are *not*
     /// relative to the piece's center of rotation.  Instead they are relative
     /// to the piece's bounding box, like for [`Piece`].
     ///
     /// [`Piece`]: crate::gameplay::Piece
-    pub const fn make(offsets: [(i8, i8); 5]) -> Kicks {
+    pub const fn make(offsets: [(i8, i8); N]) -> Kicks<N> {
         pub const fn make_one(cols: i8, rows: i8) -> (u8, u64) {
             debug_assert!(cols.abs() < 10);
             debug_assert!(rows.abs() < 4);
@@ -682,64 +740,57 @@ impl Kicks {
             ((signed_shift + 64) as u8 % 64, board_mask)
         }
 
-        let kick0 = make_one(offsets[0].0, offsets[0].1);
-        let kick1 = make_one(offsets[1].0, offsets[1].1);
-        let kick2 = make_one(offsets[2].0, offsets[2].1);
-        let kick3 = make_one(offsets[3].0, offsets[3].1);
-        let kick4 = make_one(offsets[4].0, offsets[4].1);
+        let mut rotates = [0; N];
+        let mut masks = [0; N];
 
-        Kicks {
-            rotates: [kick0.0, kick1.0, kick2.0, kick3.0, kick4.0],
-            masks: [kick0.1, kick1.1, kick2.1, kick3.1, kick4.1],
+        let mut i = 0;
+        while i < N {
+            (rotates[i], masks[i]) = make_one(offsets[i].0, offsets[i].1);
+            i += 1;
         }
+
+        Kicks { rotates, masks }
     }
 
-    /// Perform kicks clockwise from the given reachable positions.
+    /// Perform kicks from the given reachable positions.
     ///
     /// `self` corresponds to the **initial** orientation.
-    pub fn kick_cw(&self, start: PVec, cw_viable: PVec) -> PVec {
-        const fn kick(kicks: &Kicks, num: usize, from: u64, to: u64, mask: u64) -> (u64, u64) {
-            let kicked = from.rotate_left(kicks.rotates[num] as u32) & kicks.masks[num] & mask;
-            (
-                from ^ kicked.rotate_right(kicks.rotates[num] as u32),
-                to | kicked,
-            )
-        }
-
-        let from = start.0;
-        let to = 0;
+    pub fn kick(&self, start: PVec, cw_viable: PVec) -> PVec {
+        let mut from = start.0;
+        let mut to = 0;
         let mask = cw_viable.0;
 
-        let (from, to) = kick(self, 0, from, to, mask);
-        let (from, to) = kick(self, 1, from, to, mask);
-        let (from, to) = kick(self, 2, from, to, mask);
-        let (from, to) = kick(self, 3, from, to, mask);
-        let (_from, to) = kick(self, 4, from, to, mask);
+        for i in 0..N {
+            let kicked = from.rotate_left(self.rotates[i] as u32) & self.masks[i] & mask;
+            from ^= kicked.rotate_right(self.rotates[i] as u32);
+            to |= kicked;
+        }
 
         PVec(to)
     }
 
-    /// Perform kicks counter-clockwise from the given reachable positions.
+    /// Perform inverted kicks from the given reachable positions.  Used for
+    /// counter-clockwise rotations.
     ///
     /// `self` corresponds to the **final** orientation.
-    pub fn kick_ccw(&self, start: PVec, ccw_viable: PVec) -> PVec {
-        const fn kick(kicks: &Kicks, num: usize, from: u64, to: u64, mask: u64) -> (u64, u64) {
-            let kicked = (from & kicks.masks[num]).rotate_right(kicks.rotates[num] as u32) & mask;
-            (
-                from ^ kicked.rotate_left(kicks.rotates[num] as u32),
-                to | kicked,
-            )
-        }
-
-        let from = start.0;
-        let to = 0;
+    ///
+    /// "Inverted" means performing kicks in the same order, but with negated
+    /// offsets.  It does not mean an inverse function.  Kicks are not
+    /// injective.
+    ///
+    /// This is really just a trick to reduce the size of the kick tables.  It
+    /// works because SRS quarter kicks are exact negations of each other.
+    /// In particular, SRS quarter kicks are *not* horizontally symmetrical.
+    pub fn kick_inv(&self, start: PVec, ccw_viable: PVec) -> PVec {
+        let mut from = start.0;
+        let mut to = 0;
         let mask = ccw_viable.0;
 
-        let (from, to) = kick(self, 0, from, to, mask);
-        let (from, to) = kick(self, 1, from, to, mask);
-        let (from, to) = kick(self, 2, from, to, mask);
-        let (from, to) = kick(self, 3, from, to, mask);
-        let (_from, to) = kick(self, 4, from, to, mask);
+        for i in 0..N {
+            let kicked = (from & self.masks[i]).rotate_right(self.rotates[i] as u32) & mask;
+            from ^= kicked.rotate_left(self.rotates[i] as u32);
+            to |= kicked;
+        }
 
         PVec(to)
     }

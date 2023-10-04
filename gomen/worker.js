@@ -47,7 +47,9 @@ async function main() {
             }
         }
 
-        let solutions = solver.solve(queue, query.garbage, query.hold).split(",");
+        let solutions =
+            solver.solve(queue, query.garbage, query.hold, query.physics)
+                  .split(",");
 
         if (solutions[0] == "") {
             solutions = [];

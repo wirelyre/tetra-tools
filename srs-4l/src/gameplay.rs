@@ -41,9 +41,10 @@ pub struct Board(pub u64);
 ///
 /// # Rotation system
 ///
-/// This program uses the Super Rotation System (SRS).  When a piece rotates, if
-/// it collides with something on the board, it doesn't give up right away.
-/// Instead, it tries moving around a bit to see if it fits somewhere else.
+/// This program uses [variants of the Super Rotation System (SRS)][Physics].
+/// When a piece rotates, if it collides with something on the board, it doesn't
+/// give up right away.  Instead, it tries moving around a bit to see if it fits
+/// somewhere else.
 ///
 /// When a piece has to try more than one position before it succeeds, that's
 /// called a *kick*.  In SRS, five positions (the initial position plus four
@@ -56,11 +57,18 @@ pub struct Board(pub u64);
 /// (This keeps the numbers positive, which simplifies some of the math.)
 ///
 /// To compensate, we alter the kick data so that the *first* checked position
-/// is shifted too &mdash; equivalent to the usual rotation &mdash; and the
-/// other kicks are shifted by the same amount.
+/// is shifted too --- equivalent to the usual rotation --- and the other kicks
+/// are shifted by the same amount.
 ///
-/// We actually only store the clockwise kick data.  Counter-clockwise kicks are
-/// exact mirrors of clockwise kicks.
+/// We actually only store clockwise and half-rotation kick data.
+/// Counter-clockwise kicks are exact mirrors of clockwise kicks.
+///
+/// # SRS
+///
+/// Methods on this struct use SRS.  For other rotation systems, use the
+/// [`vector`] module.
+///
+/// [`vector`]: crate::vector
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct Piece {
     pub shape: Shape,
@@ -90,18 +98,48 @@ pub enum Shape {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum Orientation {
-    /// The initial orientation when a piece spawns &mdash; minoes tend to be
-    /// above a piece's center of rotation.
-    North,
-    /// One 90° clockwise rotation from spawn &mdash; minoes tend to be right of
+    /// The initial orientation when a piece spawns --- minoes tend to be above
     /// a piece's center of rotation.
-    East,
-    /// One 180° half rotation from spawn &mdash; minoes tend to be below a
+    North,
+    /// One 90° clockwise rotation from spawn --- minoes tend to be right of a
     /// piece's center of rotation.
+    East,
+    /// One 180° half rotation from spawn --- minoes tend to be below a piece's
+    /// center of rotation.
     South,
-    /// One 90° counter-clockwise rotation from spawn &mdash; minoes tend to be
-    /// left of a piece's center of rotation.
+    /// One 90° counter-clockwise rotation from spawn --- minoes tend to be left
+    /// of a piece's center of rotation.
     West,
+}
+
+/// Different rotation systems, distinguished by their handling of half
+/// rotations.
+///
+/// As implemented, these systems are strictly additive:  Every placement in SRS
+/// is valid in Jstris, and likewise for Jstris and TETRIO.
+///
+/// This means that the [`Ord`] implementation is actually meaningful! 😀
+/// Greater rotation systems simply result in more valid rotations.
+///
+/// [`Ord`]: Ord
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum Physics {
+    /// Super Rotation System.  Uses only quarter rotations, where each rotation
+    /// checks five kick offsets.
+    SRS,
+    /// System used by Jstris.  Uses SRS quarter rotations and adds two kick
+    /// offsets for half rotations.
+    Jstris,
+    /// System used by TETRIO --- almost.  Implemented here as SRS quarter
+    /// rotations, with six kick offsets for half rotations.
+    ///
+    /// TETRIO actually uses slightly different physics:  Quarter rotations for
+    /// I pieces are modified to be more intuitive.  This difference only
+    /// matters in extreme edge cases, far rarer than the use of half rotations.
+    ///
+    /// Even in such rare circumstances, this implementation is more likely to
+    /// miss placements than to produce impossible ones.
+    Tetrio,
 }
 
 impl Board {
@@ -732,6 +770,17 @@ impl Orientation {
             East => North,
             South => East,
             West => South,
+        }
+    }
+
+    /// The orientation one half rotation from the given one.
+    pub fn half(self) -> Orientation {
+        use Orientation::*;
+        match self {
+            North => South,
+            East => West,
+            South => North,
+            West => East,
         }
     }
 

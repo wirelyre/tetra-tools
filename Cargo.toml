@@ -7,3 +7,5 @@ members = [
     "gomen",
     "legal-boards",
 ]
+
+resolver = "2"

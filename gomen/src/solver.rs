@@ -6,7 +6,7 @@ use smallvec::SmallVec;
 
 use srs_4l::{
     brokenboard::BrokenBoard,
-    gameplay::{Board, Shape},
+    gameplay::{Board, Physics, Shape},
     vector::Placements,
 };
 
@@ -21,6 +21,7 @@ fn scan(
     piece_count: usize,
     can_hold: bool,
     place_last: bool,
+    physics: Physics,
 ) -> Vec<ScanStage> {
     let mut stages = Vec::new();
 
@@ -48,7 +49,7 @@ fn scan(
                     continue;
                 }
 
-                for (_, new_board) in Placements::place(old_board, shape).canonical() {
+                for (_, new_board) in Placements::place(old_board, shape, physics).canonical() {
                     if !legal_boards.is_empty() && !legal_boards.contains(&new_board) {
                         continue;
                     }
@@ -80,7 +81,7 @@ fn scan(
 
             for shape in Shape::ALL {
                 if old_queues.iter().any(|queue| queue.hold() == Some(shape)) {
-                    for (_, new_board) in Placements::place(old_board, shape).canonical() {
+                    for (_, new_board) in Placements::place(old_board, shape, physics).canonical() {
                         if !legal_boards.is_empty() && !legal_boards.contains(&new_board) {
                             continue;
                         }
@@ -133,6 +134,7 @@ fn place(
     piece_count: usize,
     can_hold: bool,
     place_last: bool,
+    physics: Physics,
 ) -> HashMap<BrokenBoard, SmallVec<[QueueState; 7]>> {
     let mut prev = HashMap::new();
     prev.insert(start, bags.first().unwrap().init_hold());
@@ -158,7 +160,9 @@ fn place(
                     continue;
                 }
 
-                for (piece, new_board) in Placements::place(old_board.board, shape).canonical() {
+                for (piece, new_board) in
+                    Placements::place(old_board.board, shape, physics).canonical()
+                {
                     if culled.contains(&new_board) {
                         let queues = next.entry(old_board.place(piece)).or_default();
                         for &queue in &new_queues {
@@ -184,7 +188,8 @@ fn place(
 
             for shape in Shape::ALL {
                 if old_queues.iter().any(|queue| queue.hold() == Some(shape)) {
-                    for (piece, new_board) in Placements::place(old_board.board, shape).canonical()
+                    for (piece, new_board) in
+                        Placements::place(old_board.board, shape, physics).canonical()
                     {
                         if culled.contains(&new_board) {
                             next.insert(old_board.place(piece), SmallVec::new());
@@ -207,6 +212,7 @@ pub fn compute(
     start: &BrokenBoard,
     bags: &[Bag],
     can_hold: bool,
+    physics: Physics,
 ) -> Vec<BrokenBoard> {
     if bags.is_empty() {
         return vec![start.clone()];
@@ -223,6 +229,7 @@ pub fn compute(
         piece_count,
         can_hold,
         place_last,
+        physics,
     );
     let culled = cull(&scanned);
     let mut placed = place(
@@ -232,6 +239,7 @@ pub fn compute(
         piece_count,
         can_hold,
         place_last,
+        physics,
     );
 
     let mut solutions: Vec<BrokenBoard> =

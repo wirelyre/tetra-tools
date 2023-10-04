@@ -4,7 +4,7 @@ use bitvec::prelude::*;
 use smallvec::SmallVec;
 
 use crate::{
-    gameplay::{Board, Orientation, Piece, Shape},
+    gameplay::{Board, Orientation, Physics, Piece, Shape},
     queue::Queue,
     vector::Placements,
 };
@@ -306,7 +306,7 @@ impl BrokenBoard {
 
     /// Run a search to find all queues that can produce this board without
     /// holding.
-    pub fn supporting_queues(&self) -> Vec<Queue> {
+    pub fn supporting_queues(&self, physics: Physics) -> Vec<Queue> {
         let mut garbage = self.to_broken_bitboard().0;
 
         for &piece in &self.pieces {
@@ -331,7 +331,7 @@ impl BrokenBoard {
                         continue;
                     }
 
-                    for (piece, _) in Placements::place(board.board, shape).canonical() {
+                    for (piece, _) in Placements::place(board.board, shape, physics).canonical() {
                         if placeable.contains(&piece) {
                             let pair = (board.place(piece), queue.push_last(shape));
 

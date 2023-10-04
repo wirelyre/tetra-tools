@@ -8,7 +8,7 @@ use srs_4l::{
     base64::{base64_decode, base64_encode},
     board_list,
     brokenboard::BrokenBoard,
-    gameplay::{Board, Shape},
+    gameplay::{Board, Physics, Shape},
 };
 
 pub mod queue;
@@ -34,7 +34,7 @@ impl Solver {
         Solver { boards }
     }
 
-    pub fn solve(&self, queue: Queue, garbage: u64, can_hold: bool) -> String {
+    pub fn solve(&self, queue: Queue, garbage: u64, can_hold: bool, physics: String) -> String {
         let empty_boards = Default::default();
 
         let start = BrokenBoard::from_garbage(garbage);
@@ -45,7 +45,14 @@ impl Solver {
             &empty_boards
         };
 
-        let solutions = solver::compute(legal_boards, &start, &queue.bags, can_hold);
+        let physics = match physics.as_ref() {
+            "SRS" => Physics::SRS,
+            "Jstris" => Physics::Jstris,
+            "TETRIO" => Physics::Tetrio,
+            _ => return "".into(),
+        };
+
+        let solutions = solver::compute(legal_boards, &start, &queue.bags, can_hold, physics);
         let mut str = String::new();
 
         for board in &solutions {
@@ -123,7 +130,8 @@ pub fn solution_info(encoded: &str) -> String {
         None => return ret,
     };
 
-    let mut without_hold = board.supporting_queues();
+    // TODO:  Return queues classified by physics.
+    let mut without_hold = board.supporting_queues(Physics::SRS);
     without_hold.sort_unstable_by_key(|q| q.natural_order_key());
 
     let with_hold = srs_4l::queue::Queue::unhold_many(&without_hold);
