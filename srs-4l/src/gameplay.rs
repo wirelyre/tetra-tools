@@ -115,13 +115,9 @@ pub enum Orientation {
 /// Different rotation systems, distinguished by their handling of half
 /// rotations.
 ///
-/// As implemented, these systems are strictly additive:  Every placement in SRS
-/// is valid in Jstris, and likewise for Jstris and TETRIO.
-///
-/// This means that the [`Ord`] implementation is actually meaningful! 😀
-/// Greater rotation systems simply result in more valid rotations.
-///
-/// [`Ord`]: Ord
+/// Jstris is strictly additive over SRS:  Every placement in SRS is valid in
+/// Jstris.  TETRIO is not:  Some placements in SRS are invalid in TETRIO, and
+/// vice versa.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Physics {
     /// Super Rotation System.  Uses only quarter rotations, where each rotation
@@ -130,15 +126,9 @@ pub enum Physics {
     /// System used by Jstris.  Uses SRS quarter rotations and adds two kick
     /// offsets for half rotations.
     Jstris,
-    /// System used by TETRIO --- almost.  Implemented here as SRS quarter
-    /// rotations, with six kick offsets for half rotations.
-    ///
-    /// TETRIO actually uses slightly different physics:  Quarter rotations for
-    /// I pieces are modified to be more intuitive.  This difference only
-    /// matters in extreme edge cases, far rarer than the use of half rotations.
-    ///
-    /// Even in such rare circumstances, this implementation is more likely to
-    /// miss placements than to produce impossible ones.
+    /// System used by TETRIO.  Uses SRS+ quarter rotations (which are SRS with
+    /// I-piece quarter rotations modified to be more intuitive) and adds six
+    /// kick offsets for half rotations.
     Tetrio,
 }
 

@@ -49,11 +49,11 @@ pub fn compute() -> Vec<Board> {
 
             prev_stage.par_iter_mut().for_each(|(&board, _preds)| {
                 for shape in Shape::ALL {
-                    // Placements with TETRIO physics are always a superset of
-                    // placements with other physics.  TETRIO physics is the
-                    // most general.
-                    for (_piece, new_board) in
-                        Placements::place(board, shape, Physics::Tetrio).canonical()
+                    // No need to use Physics::SRS, since Jstris placements are
+                    // a superset of SRS placements.
+                    for (_piece, new_board) in (Placements::place(board, shape, Physics::Jstris)
+                        | Placements::place(board, shape, Physics::Tetrio))
+                    .canonical()
                     {
                         if new_board.has_isolated_cell() || new_board.has_imbalanced_split() {
                             continue;

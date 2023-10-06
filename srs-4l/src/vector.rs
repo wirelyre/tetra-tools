@@ -271,44 +271,66 @@ impl PlacementMachine {
     /// positions are discovered during kicks, those other orientations are
     /// marked dirty.
     ///
-    /// Half rotations here optimistically use the same kicks for all shapes,
-    /// which is incorrect for O.  O placements are handled [elsewhere].
-    ///
     /// [flood fills]: PVec::flood_fill
     /// [kicks]:       Kicks
-    /// [elsewhere]:   Placements::place
     fn step(&mut self, o: Orientation) {
         let o_0 = o as usize;
         let o_90 = o.cw() as usize;
         let o_180 = o.half() as usize;
         let o_270 = o.ccw() as usize;
 
-        let kicks = KICKS[self.shape as usize];
-
         if self.dirty[o_0] {
             self.reachable[o_0] = self.reachable[o_0].flood_fill(self.viable[o_0]);
 
-            let more_90 = kicks[o_0].kick(self.reachable[o_0], self.viable[o_90]);
+            let (more_90, more_180, more_270) = match (self.physics, self.shape) {
+                // O pieces are handled in the shortcut in `Placements::place`.
+                /* (_, Shape::O) => (PVec(0), PVec(0), PVec(0)), */
+                (_, Shape::O) => unreachable!(),
+
+                (Physics::SRS, Shape::I) => (
+                    SRS_I.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    SRS_I.half(o, self.reachable[o_0], self.viable[o_180]),
+                    SRS_I.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+                (Physics::SRS, _) => (
+                    SRS_JLSTZ.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    SRS_JLSTZ.half(o, self.reachable[o_0], self.viable[o_180]),
+                    SRS_JLSTZ.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+
+                (Physics::Jstris, Shape::I) => (
+                    JSTRIS_I.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    JSTRIS_I.half(o, self.reachable[o_0], self.viable[o_180]),
+                    JSTRIS_I.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+                (Physics::Jstris, _) => (
+                    JSTRIS_JLSTZ.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    JSTRIS_JLSTZ.half(o, self.reachable[o_0], self.viable[o_180]),
+                    JSTRIS_JLSTZ.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+
+                (Physics::Tetrio, Shape::I) => (
+                    TETRIO_I.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    TETRIO_I.half(o, self.reachable[o_0], self.viable[o_180]),
+                    TETRIO_I.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+                (Physics::Tetrio, _) => (
+                    TETRIO_JLSTZ.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    TETRIO_JLSTZ.half(o, self.reachable[o_0], self.viable[o_180]),
+                    TETRIO_JLSTZ.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+            };
+
             if (self.reachable[o_90] & more_90) != more_90 {
                 self.reachable[o_90] |= more_90;
                 self.dirty[o_90] = true;
             }
 
-            let more_180 = match self.physics {
-                Physics::SRS => PVec(0), // SRS has no half rotations!
-                Physics::Jstris => {
-                    KICKS_JSTRIS_180[o_0].kick(self.reachable[o_0], self.viable[o_180])
-                }
-                Physics::Tetrio => {
-                    KICKS_TETRIO_180[o_0].kick(self.reachable[o_0], self.viable[o_180])
-                }
-            };
             if (self.reachable[o_180] & more_180) != more_180 {
                 self.reachable[o_180] |= more_180;
                 self.dirty[o_180] = true;
             }
 
-            let more_270 = kicks[o_270].kick_inv(self.reachable[o_0], self.viable[o_270]);
             if (self.reachable[o_270] & more_270) != more_270 {
                 self.reachable[o_270] |= more_270;
                 self.dirty[o_270] = true;
@@ -529,32 +551,22 @@ pub struct Collision {
     placeable_shift: u8,
 }
 
-/// Kick data for one piece shape, in one orientation.
+/// Packed kick data for a single piece under a single rotation system.
 ///
-/// The SRS kick algorithm and its variants try five positions during any piece
-/// rotation.  The first to succeed, if any, is used.
+/// Takes the number of offsets for quarter-rotation kicks and half-rotation
+/// kicks as type parameters.  Assumes an equal number of clockwise and
+/// counter-clockwise kicks.
 ///
-/// Since we deal with multiple positions at once, we can't really stop for a
-/// successful kick.  Instead, we always do *all* kicks.  For each kick, we find
-/// the positions where the piece was successfully rotated.  Then we do the kick
-/// *backwards*, removing the initial positions of successful kicks from the
-/// vector.  This way, later kicks aren't used after the first successful kick.
+/// Each of `rotates` and `masks` is indexed first (as a tuple) by rotation
+/// direction, as in the arguments to [`make`], then by initial [orientation],
+/// and finally by kick number.
 ///
-/// For a single kick, like for [`Collision`], the positions are shifted using a
-/// bit shift, then a mask is applied to remove positions which wrapped around,
-/// and finally only the viable positions are selected.
-///
-/// However, unlike for `Collision`, kicks can move up or down!  This means that
-/// we might need either a left or right bit shift (and the opposite for
-/// performing the kick backwards).  Rather than choosing a shift, which is a
-/// bit slow, we instead rotate the bits before masking, which works for both
-/// directions.  For example, a shift one row upwards is performed as a rotate
-/// left by 10 bits.  A shift one row downwards is performed as a rotate left by
-/// 64&nbsp;&minus;&nbsp;10&nbsp;=&nbsp;54 bits.  Rotating right with the same
-/// numbers reverses both operations without any extra calculation.
-pub struct Kicks<const N: usize = 5> {
-    rotates: [u8; N],
-    masks: [u64; N],
+/// [`make`]:      Kicks::make
+/// [orientation]: Orientation
+pub struct Kicks<const QUARTER: usize, const HALF: usize> {
+    // TODO: could have better data locality breaking into individual rotations
+    rotates: ([[u8; QUARTER]; 4], [[u8; HALF]; 4], [[u8; QUARTER]; 4]),
+    masks: ([[u64; QUARTER]; 4], [[u64; HALF]; 4], [[u64; QUARTER]; 4]),
 }
 
 /// Collision data for every tetromino.
@@ -612,62 +624,144 @@ pub static COLLISION: [[Collision; 4]; 7] = [
     ],
 ];
 
-/// Quarter-rotation kick data for every tetromino.
+/// Kick data for I pieces under SRS.
+#[rustfmt::skip]
+pub static SRS_I: Kicks<5, 0> = Kicks::make(
+    [
+        [( 2, -2), ( 0, -2), ( 3, -2), ( 0, -3), ( 3,  0)],
+        [(-2,  1), (-3,  1), ( 0,  1), (-3,  3), ( 0,  0)],
+        [( 1, -1), ( 3, -1), ( 0, -1), ( 3,  0), ( 0, -3)],
+        [(-1,  2), ( 0,  2), (-3,  2), ( 0,  0), (-3,  3)],
+    ],
+    [[], [], [], []],
+    [
+        [( 1, -2), ( 0, -2), ( 3, -2), ( 0,  0), ( 3, -3)],
+        [(-2,  2), ( 0,  2), (-3,  2), ( 0,  3), (-3,  0)],
+        [( 2, -1), ( 3, -1), ( 0, -1), ( 3, -3), ( 0,  0)],
+        [(-1,  1), (-3,  1), ( 0,  1), (-3,  0), ( 0,  3)],
+    ],
+);
+/// Kick data for J, L, S, T, and Z pieces under SRS.
+#[rustfmt::skip]
+pub static SRS_JLSTZ: Kicks<5, 0> = Kicks::make(
+    [
+        [( 1, -1), ( 0, -1), ( 0,  0), ( 1, -3), ( 0, -3)],
+        [(-1,  0), ( 0,  0), ( 0, -1), (-1,  2), ( 0,  2)],
+        [( 0,  0), ( 1,  0), ( 1,  1), ( 0, -2), ( 1, -2)],
+        [( 0,  1), (-1,  1), (-1,  0), ( 0,  3), (-1,  3)],
+    ],
+    [[], [], [], []],
+    [
+        [( 0, -1), ( 1, -1), ( 1,  0), ( 0, -3), ( 1, -3)],
+        [(-1,  1), ( 0,  1), ( 0,  0), (-1,  3), ( 0,  3)],
+        [( 1,  0), ( 0,  0), ( 0,  1), ( 1, -2), ( 0, -2)],
+        [( 0,  0), (-1,  0), (-1, -1), ( 0,  2), (-1,  2)],
+    ],
+);
+/// Kick data for O pieces under SRS, Jstris, and TETRIO.  Look at the type,
+/// `Kicks<0, 0>` --- in a sense, O actually has no rotations at all.
+pub static SRS_O: Kicks<0, 0> = Kicks::make([[], [], [], []], [[], [], [], []], [[], [], [], []]);
+
+/// Kick data for I pieces under Jstris.  Identical to [`SRS_I`] but with two
+/// kick offsets for each half rotation.
 ///
-/// Indexed first by piece [shape](Shape), then by [orientation](Orientation).
+/// [`SRS_I`]: SRS_I
+#[rustfmt::skip]
+pub static JSTRIS_I: Kicks<5, 2> = Kicks::make(
+    [
+        [( 2, -2), ( 0, -2), ( 3, -2), ( 0, -3), ( 3,  0)],
+        [(-2,  1), (-3,  1), ( 0,  1), (-3,  3), ( 0,  0)],
+        [( 1, -1), ( 3, -1), ( 0, -1), ( 3,  0), ( 0, -3)],
+        [(-1,  2), ( 0,  2), (-3,  2), ( 0,  0), (-3,  3)],
+    ],
+    [
+        [( 0, -1), ( 0,  0)],
+        [(-1,  0), ( 0,  0)],
+        [( 0,  1), ( 0,  0)],
+        [( 1,  0), ( 0,  0)],
+    ],
+    [
+        [( 1, -2), ( 0, -2), ( 3, -2), ( 0,  0), ( 3, -3)],
+        [(-2,  2), ( 0,  2), (-3,  2), ( 0,  3), (-3,  0)],
+        [( 2, -1), ( 3, -1), ( 0, -1), ( 3, -3), ( 0,  0)],
+        [(-1,  1), (-3,  1), ( 0,  1), (-3,  0), ( 0,  3)],
+    ],
+);
+/// Kick data for J, L, S, T, and Z pieces under Jstris.  Identical to
+/// [`SRS_JLSTZ`] but with two kick offsets for each half rotation.
 ///
-/// See the [`gameplay`](crate::gameplay) source code for more information about
-/// the specific numbers.
-pub static KICKS: [&[Kicks; 4]; 7] = [
-    &I_KICKS,     /* I */
-    &JLSTZ_KICKS, /* J */
-    &JLSTZ_KICKS, /* L */
-    &O_KICKS,     /* O */
-    &JLSTZ_KICKS, /* S */
-    &JLSTZ_KICKS, /* T */
-    &JLSTZ_KICKS, /* Z */
-];
+/// [`SRS_JLSTZ`]: SRS_JLSTZ
+#[rustfmt::skip]
+pub static JSTRIS_JLSTZ: Kicks<5, 2> = Kicks::make(
+    [
+        [( 1, -1), ( 0, -1), ( 0,  0), ( 1, -3), ( 0, -3)],
+        [(-1,  0), ( 0,  0), ( 0, -1), (-1,  2), ( 0,  2)],
+        [( 0,  0), ( 1,  0), ( 1,  1), ( 0, -2), ( 1, -2)],
+        [( 0,  1), (-1,  1), (-1,  0), ( 0,  3), (-1,  3)],
+    ],
+    [
+        [( 0, -1), ( 0,  0)],
+        [(-1,  0), ( 0,  0)],
+        [( 0,  1), ( 0,  0)],
+        [( 1,  0), ( 0,  0)],
+    ],
+    [
+        [( 0, -1), ( 1, -1), ( 1,  0), ( 0, -3), ( 1, -3)],
+        [(-1,  1), ( 0,  1), ( 0,  0), (-1,  3), ( 0,  3)],
+        [( 1,  0), ( 0,  0), ( 0,  1), ( 1, -2), ( 0, -2)],
+        [( 0,  0), (-1,  0), (-1, -1), ( 0,  2), (-1,  2)],
+    ],
+);
 
-static I_KICKS: [Kicks; 4] = [
-    Kicks::make([(2, -2), (0, -2), (3, -2), (0, -3), (3, 0)]),
-    Kicks::make([(-2, 1), (-3, 1), (0, 1), (-3, 3), (0, 0)]),
-    Kicks::make([(1, -1), (3, -1), (0, -1), (3, 0), (0, -3)]),
-    Kicks::make([(-1, 2), (0, 2), (-3, 2), (0, 0), (-3, 3)]),
-];
-
-static JLSTZ_KICKS: [Kicks; 4] = [
-    Kicks::make([(1, -1), (0, -1), (0, 0), (1, -3), (0, -3)]),
-    Kicks::make([(-1, 0), (0, 0), (0, -1), (-1, 2), (0, 2)]),
-    Kicks::make([(0, 0), (1, 0), (1, 1), (0, -2), (1, -2)]),
-    Kicks::make([(0, 1), (-1, 1), (-1, 0), (0, 3), (-1, 3)]),
-];
-
-static O_KICKS: [Kicks; 4] = [
-    Kicks::make([(0, 0); 5]),
-    Kicks::make([(0, 0); 5]),
-    Kicks::make([(0, 0); 5]),
-    Kicks::make([(0, 0); 5]),
-];
-
-/// Half-rotation kick data for Jstris, indexed by initial orientation.
+/// Kick data for I pieces under TETRIO.  *Different* from other I kick data,
+/// because TETRIO uses SRS+ kicks --- which are more symmetric, but not
+/// rotationally inverted --- for I pieces.
+#[rustfmt::skip]
+pub static TETRIO_I: Kicks<5, 6> = Kicks::make(
+    [
+        [( 2, -2), ( 3, -2), ( 0, -2), ( 0, -3), ( 3,  0)],
+        [(-2,  1), (-3,  1), ( 0,  1), (-3,  3), ( 0,  0)],
+        [( 1, -1), ( 3, -1), ( 0, -1), ( 3,  0), ( 0, -3)],
+        [(-1,  2), ( 0,  2), (-3,  2), ( 0,  0), (-3,  3)],
+    ],
+    [
+        [( 0, -1), ( 0,  0), ( 1,  0), (-1,  0), ( 1, -1), (-1, -1)],
+        [( 0,  1), ( 0,  0), (-1,  0), ( 1,  0), (-1,  1), ( 1,  1)],
+        [(-1,  0), ( 0,  0), ( 0,  2), ( 0,  1), (-1,  2), (-1,  1)],
+        [( 1,  0), ( 0,  0), ( 0,  2), ( 0,  1), ( 1,  2), ( 1,  1)],
+    ],
+    [
+        [( 1, -2), ( 0, -2), ( 3, -2), ( 3, -3), ( 0,  0)],
+        [(-2,  2), (-3,  2), ( 0,  2), (-3,  0), ( 0,  3)],
+        [( 2, -1), ( 0, -1), ( 3, -1), ( 0,  0), ( 3, -3)],
+        [(-1,  1), ( 0,  1), (-3,  1), ( 0,  3), (-3,  0)],
+    ],
+);
+/// Kick data for J, L, S, T, and Z pieces under TETRIO.  Identical to
+/// [`JSTRIS_JLSTZ`] but with four more kick offsets for half rotations.
 ///
-/// All pieces except for O use the same 180º kick table.
-pub static KICKS_JSTRIS_180: [Kicks<2>; 4] = [
-    Kicks::make([(0, -1), (0, 0)]),
-    Kicks::make([(-1, 0), (0, 0)]),
-    Kicks::make([(0, 1), (0, 0)]),
-    Kicks::make([(1, 0), (0, 0)]),
-];
-
-/// Half-rotation kick data for TETRIO, indexed by initial orientation.
-///
-/// All pieces except for O use the same 180º kick table.
-pub static KICKS_TETRIO_180: [Kicks<6>; 4] = [
-    Kicks::make([(0, -1), (0, 0), (1, 0), (-1, 0), (1, -1), (-1, -1)]),
-    Kicks::make([(-1, 0), (0, 0), (0, 2), (0, 1), (-1, 2), (-1, 1)]),
-    Kicks::make([(0, 1), (0, 0), (-1, 0), (1, 0), (-1, 1), (1, 1)]),
-    Kicks::make([(1, 0), (0, 0), (0, 2), (0, 1), (1, 2), (1, 1)]),
-];
+/// [`JSTRIS_JLSTZ`]: JSTRIS_JLSTZ
+#[rustfmt::skip]
+pub static TETRIO_JLSTZ: Kicks<5, 6> = Kicks::make(
+    [
+        [( 1, -1), ( 0, -1), ( 0,  0), ( 1, -3), ( 0, -3)],
+        [(-1,  0), ( 0,  0), ( 0, -1), (-1,  2), ( 0,  2)],
+        [( 0,  0), ( 1,  0), ( 1,  1), ( 0, -2), ( 1, -2)],
+        [( 0,  1), (-1,  1), (-1,  0), ( 0,  3), (-1,  3)],
+    ],
+    [
+        [( 0, -1), ( 0,  0), ( 1,  0), (-1,  0), ( 1, -1), (-1, -1)],
+        [(-1,  0), ( 0,  0), ( 0,  2), ( 0,  1), (-1,  2), (-1,  1)],
+        [( 0,  1), ( 0,  0), (-1,  0), ( 1,  0), (-1,  1), ( 1,  1)],
+        [( 1,  0), ( 0,  0), ( 0,  2), ( 0,  1), ( 1,  2), ( 1,  1)],
+    ],
+    [
+        [( 0, -1), ( 1, -1), ( 1,  0), ( 0, -3), ( 1, -3)],
+        [(-1,  1), ( 0,  1), ( 0,  0), (-1,  3), ( 0,  3)],
+        [( 1,  0), ( 0,  0), ( 0,  1), ( 1, -2), ( 0, -2)],
+        [( 0,  0), (-1,  0), (-1, -1), ( 0,  2), (-1,  2)],
+    ],
+);
 
 impl Collision {
     /// Compute collision data for a single shape and orientation from the given
@@ -721,15 +815,21 @@ impl Collision {
     }
 }
 
-impl<const N: usize> Kicks<N> {
-    /// Compute kick data for a single shape and orientation from the given kick
-    /// offsets.  The offsets are specified by `(column, row)`, and are *not*
-    /// relative to the piece's center of rotation.  Instead they are relative
-    /// to the piece's bounding box, like for [`Piece`].
-    ///
-    /// [`Piece`]: crate::gameplay::Piece
-    pub const fn make(offsets: [(i8, i8); N]) -> Kicks<N> {
-        pub const fn make_one(cols: i8, rows: i8) -> (u8, u64) {
+impl<const QUARTER: usize, const HALF: usize> Kicks<QUARTER, HALF> {
+    pub const fn make(
+        cw_offsets: [[(i8, i8); QUARTER]; 4],
+        half_offsets: [[(i8, i8); HALF]; 4],
+        ccw_offsets: [[(i8, i8); QUARTER]; 4],
+    ) -> Self {
+        let mut cw_rotates = [[0; QUARTER]; 4];
+        let mut half_rotates = [[0; HALF]; 4];
+        let mut ccw_rotates = [[0; QUARTER]; 4];
+
+        let mut cw_masks = [[0; QUARTER]; 4];
+        let mut half_masks = [[0; HALF]; 4];
+        let mut ccw_masks = [[0; QUARTER]; 4];
+
+        pub const fn make_one((cols, rows): (i8, i8)) -> (u8, u64) {
             debug_assert!(cols.abs() < 10);
             debug_assert!(rows.abs() < 4);
 
@@ -740,55 +840,60 @@ impl<const N: usize> Kicks<N> {
             ((signed_shift + 64) as u8 % 64, board_mask)
         }
 
-        let mut rotates = [0; N];
-        let mut masks = [0; N];
-
         let mut i = 0;
-        while i < N {
-            (rotates[i], masks[i]) = make_one(offsets[i].0, offsets[i].1);
-            i += 1;
+        while i < 4 {
+            let mut j = 0;
+            while j < QUARTER {
+                (cw_rotates[i][j], cw_masks[i][j]) = make_one(cw_offsets[i][j]);
+                (ccw_rotates[i][j], ccw_masks[i][j]) = make_one(ccw_offsets[i][j]);
+                j += 1;
+            }
+
+            j = 0;
+            while j < HALF {
+                (half_rotates[i][j], half_masks[i][j]) = make_one(half_offsets[i][j]);
+                j += 1;
+            }
+
+            i += 1
         }
 
-        Kicks { rotates, masks }
-    }
-
-    /// Perform kicks from the given reachable positions.
-    ///
-    /// `self` corresponds to the **initial** orientation.
-    pub fn kick(&self, start: PVec, cw_viable: PVec) -> PVec {
-        let mut from = start.0;
-        let mut to = 0;
-        let mask = cw_viable.0;
-
-        for i in 0..N {
-            let kicked = from.rotate_left(self.rotates[i] as u32) & self.masks[i] & mask;
-            from ^= kicked.rotate_right(self.rotates[i] as u32);
-            to |= kicked;
+        Kicks {
+            rotates: (cw_rotates, half_rotates, ccw_rotates),
+            masks: (cw_masks, half_masks, ccw_masks),
         }
-
-        PVec(to)
     }
 
-    /// Perform inverted kicks from the given reachable positions.  Used for
-    /// counter-clockwise rotations.
-    ///
-    /// `self` corresponds to the **final** orientation.
-    ///
-    /// "Inverted" means performing kicks in the same order, but with negated
-    /// offsets.  It does not mean an inverse function.  Kicks are not
-    /// injective.
-    ///
-    /// This is really just a trick to reduce the size of the kick tables.  It
-    /// works because SRS quarter kicks are exact negations of each other.
-    /// In particular, SRS quarter kicks are *not* horizontally symmetrical.
-    pub fn kick_inv(&self, start: PVec, ccw_viable: PVec) -> PVec {
-        let mut from = start.0;
+    pub fn cw(&self, initial: Orientation, from: PVec, viable: PVec) -> PVec {
+        Self::do_kicks(initial, from, viable, &self.rotates.0, &self.masks.0)
+    }
+
+    pub fn half(&self, initial: Orientation, from: PVec, viable: PVec) -> PVec {
+        Self::do_kicks(initial, from, viable, &self.rotates.1, &self.masks.1)
+    }
+
+    pub fn ccw(&self, initial: Orientation, from: PVec, viable: PVec) -> PVec {
+        Self::do_kicks(initial, from, viable, &self.rotates.2, &self.masks.2)
+    }
+
+    // TODO: Inline?
+    fn do_kicks<const N: usize>(
+        initial: Orientation,
+        from: PVec,
+        viable: PVec,
+        rotates: &[[u8; N]; 4],
+        masks: &[[u64; N]; 4],
+    ) -> PVec {
+        let rotates = rotates[initial as usize];
+        let masks = masks[initial as usize];
+
+        let mut from = from.0;
         let mut to = 0;
-        let mask = ccw_viable.0;
+        let mask = viable.0;
 
         for i in 0..N {
-            let kicked = (from & self.masks[i]).rotate_right(self.rotates[i] as u32) & mask;
-            from ^= kicked.rotate_left(self.rotates[i] as u32);
+            let kicked = from.rotate_left(rotates[i] as u32) & masks[i] & mask;
+            from ^= kicked.rotate_right(rotates[i] as u32);
             to |= kicked;
         }
 
@@ -870,5 +975,40 @@ impl std::ops::BitAndAssign for PVec {
 impl std::ops::BitOrAssign for PVec {
     fn bitor_assign(&mut self, rhs: Self) {
         *self = *self | rhs;
+    }
+}
+
+impl std::ops::BitAnd for Placements {
+    type Output = Placements;
+
+    fn bitand(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.shape, rhs.shape);
+        assert_eq!(self.board, rhs.board); // TODO: `and` these together?
+        Placements {
+            positions: [
+                self.positions[0] & rhs.positions[0],
+                self.positions[1] & rhs.positions[1],
+                self.positions[2] & rhs.positions[2],
+                self.positions[3] & rhs.positions[3],
+            ],
+            ..self
+        }
+    }
+}
+impl std::ops::BitOr for Placements {
+    type Output = Placements;
+
+    fn bitor(self, rhs: Self) -> Self::Output {
+        assert_eq!(self.shape, rhs.shape);
+        assert_eq!(self.board, rhs.board); // TODO: `or` these together?
+        Placements {
+            positions: [
+                self.positions[0] | rhs.positions[0],
+                self.positions[1] | rhs.positions[1],
+                self.positions[2] | rhs.positions[2],
+                self.positions[3] | rhs.positions[3],
+            ],
+            ..self
+        }
     }
 }
