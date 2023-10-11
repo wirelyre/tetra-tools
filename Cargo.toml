@@ -6,6 +6,8 @@ members = [
 
     "gomen",
     "legal-boards",
+
+    "tetra",
 ]
 
 resolver = "2"
