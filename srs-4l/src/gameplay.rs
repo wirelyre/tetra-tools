@@ -112,12 +112,13 @@ pub enum Orientation {
     West,
 }
 
-/// Different rotation systems, distinguished by their handling of half
-/// rotations.
+/// Different physics systems, distinguished by their handling of rotations.
 ///
 /// Jstris is strictly additive over SRS:  Every placement in SRS is valid in
 /// Jstris.  TETRIO is not:  Some placements in SRS are invalid in TETRIO, and
 /// vice versa.
+///
+/// `NoKick`, `NoSpin`, and `NoRotate` are extremely exotic.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum Physics {
     /// Super Rotation System.  Uses only quarter rotations, where each rotation
@@ -130,6 +131,16 @@ pub enum Physics {
     /// I-piece quarter rotations modified to be more intuitive) and adds six
     /// kick offsets for half rotations.
     Tetrio,
+
+    /// No kicks, only spins.  Uses SRS for in-place spins (the characteristic
+    /// piece wobbles) with exactly one kick offset for each rotation, including
+    /// 180s.
+    NoKick,
+    /// No spins.  Pieces may enter the top of the board in any orientation, but
+    /// may never rotate once in bounds.
+    NoSpin,
+    /// No rotations at all.  Pieces spawn facing north and may never rotate.
+    NoRotate,
 }
 
 impl Board {

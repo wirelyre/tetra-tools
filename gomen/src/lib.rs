@@ -49,6 +49,9 @@ impl Solver {
             "SRS" => Physics::SRS,
             "Jstris" => Physics::Jstris,
             "TETRIO" => Physics::Tetrio,
+            "NoKick" => Physics::NoKick,
+            "NoSpin" => Physics::NoSpin,
+            "NoRotate" => Physics::NoRotate,
             _ => return "".into(),
         };
 

@@ -146,6 +146,51 @@ impl Placements {
 
         let collision = &COLLISION[shape as usize];
 
+        // Exotic physics systems.
+        match physics {
+            Physics::NoSpin => {
+                // Pieces may enter the top of the board in any orientation...
+                let viable = [
+                    collision[0].viable(board),
+                    collision[1].viable(board),
+                    collision[2].viable(board),
+                    collision[3].viable(board),
+                ];
+                // ...but may never rotate once in bounds.
+                let reachable = [
+                    (SPAWN & viable[0]).flood_fill(viable[0]),
+                    (SPAWN & viable[1]).flood_fill(viable[1]),
+                    (SPAWN & viable[2]).flood_fill(viable[2]),
+                    (SPAWN & viable[3]).flood_fill(viable[3]),
+                ];
+
+                return Placements {
+                    shape,
+                    board,
+                    positions: [
+                        collision[0].placeable(reachable[0]),
+                        collision[1].placeable(reachable[1]),
+                        collision[2].placeable(reachable[2]),
+                        collision[3].placeable(reachable[3]),
+                    ],
+                };
+            }
+
+            Physics::NoRotate => {
+                // Pieces spawn facing north...
+                let viable = collision[0].viable(board);
+                // ...and may never rotate.
+                let reachable = (SPAWN & viable).flood_fill(viable);
+
+                return Placements {
+                    shape,
+                    board,
+                    positions: [collision[0].placeable(reachable), PVec(0), PVec(0), PVec(0)],
+                };
+            }
+            _ => (),
+        }
+
         if shape == Shape::O {
             // Shortcut for O.
             // - An O piece can never move upwards (no up-kicks)
@@ -319,6 +364,21 @@ impl PlacementMachine {
                     TETRIO_JLSTZ.half(o, self.reachable[o_0], self.viable[o_180]),
                     TETRIO_JLSTZ.ccw(o, self.reachable[o_0], self.viable[o_270]),
                 ),
+
+                (Physics::NoKick, Shape::I) => (
+                    NOKICK_I.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    NOKICK_I.half(o, self.reachable[o_0], self.viable[o_180]),
+                    NOKICK_I.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+                (Physics::NoKick, _) => (
+                    NOKICK_JLSTZ.cw(o, self.reachable[o_0], self.viable[o_90]),
+                    NOKICK_JLSTZ.half(o, self.reachable[o_0], self.viable[o_180]),
+                    NOKICK_JLSTZ.ccw(o, self.reachable[o_0], self.viable[o_270]),
+                ),
+
+                // These are handled in `Placements::place`.
+                (Physics::NoSpin, _) => unreachable!(),
+                (Physics::NoRotate, _) => unreachable!(),
             };
 
             if (self.reachable[o_90] & more_90) != more_90 {
@@ -761,6 +821,23 @@ pub static TETRIO_JLSTZ: Kicks<5, 6> = Kicks::make(
         [( 1,  0), ( 0,  0), ( 0,  1), ( 1, -2), ( 0, -2)],
         [( 0,  0), (-1,  0), (-1, -1), ( 0,  2), (-1,  2)],
     ],
+);
+
+/// Kick data for I pieces under NoKick.  The same as Jstris but with only one
+/// offset for each rotation.
+#[rustfmt::skip]
+pub static NOKICK_I: Kicks<1, 1> = Kicks::make(
+    [[( 2, -2)], [(-2,  1)], [( 1, -1)], [(-1,  2)]],
+    [[( 0, -1)], [(-1,  0)], [( 0,  1)], [( 1,  0)]],
+    [[( 1, -2)], [(-2,  2)], [( 2, -1)], [(-1,  1)]],
+);
+/// Kick data for J, L, S, T, and Z pieces under NoKick.  The same as Jstris but
+/// with only one offset for each roation.
+#[rustfmt::skip]
+pub static NOKICK_JLSTZ: Kicks<1, 1> = Kicks::make(
+    [[( 1, -1)], [(-1,  0)], [( 0,  0)], [( 0,  1)]],
+    [[( 0, -1)], [(-1,  0)], [( 0,  1)], [( 1,  0)]],
+    [[( 0, -1)], [(-1,  1)], [( 1,  0)], [( 0,  0)]],
 );
 
 impl Collision {
