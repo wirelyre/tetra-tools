@@ -322,7 +322,7 @@ async function __wbg_load(module, imports) {
 function __wbg_get_imports() {
     const imports = {};
     imports.wbg = {};
-    imports.wbg.__wbg_progress_1f2cb135ee9cb7f9 = function(arg0, arg1, arg2, arg3) {
+    imports.wbg.__wbg_progress_49a3e88028059a1f = function(arg0, arg1, arg2, arg3) {
         progress(arg0 >>> 0, arg1 >>> 0, arg2 >>> 0, arg3 >>> 0);
     };
     imports.wbg.__wbindgen_object_drop_ref = function(arg0) {
