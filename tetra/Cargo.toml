@@ -9,11 +9,15 @@ name = "native"
 crate-type = ["cdylib"]
 
 [dependencies]
+ahash = "0.8.0"
 bitvec = "1"
 fumen = "0.1.2"
+itertools = "0.11.0"
 pyo3 = "0.19.0"
 regex = "1.9"
+rdst = "0.20.11"
 smallvec = { version = "1.11", features = ["union"] }
 strum = { version = "0.25.0", features = ["derive"] }
+tap = "1.0"
 
 srs-4l = { path = "../srs-4l" }

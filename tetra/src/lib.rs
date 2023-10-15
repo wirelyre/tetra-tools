@@ -13,6 +13,7 @@ fn tetra(_py: Python, m: &PyModule) -> PyResult<()> {
     m.add_class::<types::Fumen>()?;
     m.add_class::<types::Piece>()?;
     m.add_class::<types::Solution>()?;
+    m.add_class::<types::QueueSet>()?;
     m.add_class::<solver::Srs4lSolver>()?;
 
     Ok(())

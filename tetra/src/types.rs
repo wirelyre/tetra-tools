@@ -1,16 +1,17 @@
 //! Types exported to Python.
 
-use std::collections::HashSet;
+use std::collections::BTreeSet;
 
+use ahash::AHashSet;
 use bitvec::prelude::*;
 use pyo3::prelude::*;
-use smallvec::SmallVec;
 use strum::{EnumString, IntoStaticStr};
 
 // Most methods are implemented in these submodules.
 mod field;
 mod fumen;
 mod piece;
+pub mod queue_set;
 mod solution;
 
 pub use srs_4l::gameplay::Physics;
@@ -61,8 +62,12 @@ pub struct Solution {
 #[pyclass]
 pub struct Fumen(pub ::fumen::Fumen);
 
+#[derive(Debug)]
 #[pyclass]
-pub struct QueueSet(pub HashSet<SmallVec<[Shape; 16]>>);
+pub struct QueueSet {
+    pub patterns: BTreeSet<String>,
+    pub queues: AHashSet<queue_set::Queue>,
+}
 
 impl TryFrom<char> for Shape {
     type Error = ();
@@ -77,6 +82,20 @@ impl TryFrom<char> for Shape {
             'T' => Ok(Shape::T),
             'Z' => Ok(Shape::Z),
             _ => Err(()),
+        }
+    }
+}
+
+impl From<Shape> for char {
+    fn from(value: Shape) -> Self {
+        match value {
+            Shape::I => 'I',
+            Shape::J => 'J',
+            Shape::L => 'L',
+            Shape::O => 'O',
+            Shape::S => 'S',
+            Shape::T => 'T',
+            Shape::Z => 'Z',
         }
     }
 }
